@@ -86,7 +86,6 @@ class RangedFileResponse(Response):
             "content-range"
         ] = f"bytes {range.start}-{range.end}/{total_length}"
         self.headers["content-length"] = str(content_length)
-        pass
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if self.stat_result is None:

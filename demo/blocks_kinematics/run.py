@@ -12,8 +12,7 @@ def plot(v, a):
 
     x = (v * timemat) * np.cos(theta)
     y = ((v * timemat) * np.sin(theta)) - ((0.5 * g) * (timemat**2))
-    df = pd.DataFrame({"x": x, "y": y})
-    return df
+    return pd.DataFrame({"x": x, "y": y})
 
 
 demo = gr.Blocks()

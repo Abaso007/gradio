@@ -93,9 +93,9 @@ def load_blocks_from_repo(
         "models": from_model,
         "spaces": from_spaces,
     }
-    assert src.lower() in factory_methods, "parameter: src must be one of {}".format(
-        factory_methods.keys()
-    )
+    assert (
+        src.lower() in factory_methods
+    ), f"parameter: src must be one of {factory_methods.keys()}"
 
     if api_key is not None:
         if Context.hf_token is not None and Context.hf_token != api_key:
@@ -358,7 +358,7 @@ def from_model(model_name: str, api_key: str | None, alias: str | None, **kwargs
             data.update({"options": {"wait_for_model": True}})
             data = json.dumps(data)
         response = requests.request("POST", api_url, headers=headers, data=data)
-        if not (response.status_code == 200):
+        if response.status_code != 200:
             errors_json = response.json()
             errors, warns = "", ""
             if errors_json.get("error"):
@@ -379,11 +379,7 @@ def from_model(model_name: str, api_key: str | None, alias: str | None, **kwargs
         output = pipeline["postprocess"](response)
         return output
 
-    if alias is None:
-        query_huggingface_api.__name__ = model_name
-    else:
-        query_huggingface_api.__name__ = alias
-
+    query_huggingface_api.__name__ = model_name if alias is None else alias
     interface_info = {
         "fn": query_huggingface_api,
         "inputs": pipeline["inputs"],
@@ -406,9 +402,9 @@ def from_model(model_name: str, api_key: str | None, alias: str | None, **kwargs
 def from_spaces(
     space_name: str, api_key: str | None, alias: str | None, **kwargs
 ) -> Blocks:
-    space_url = "https://huggingface.co/spaces/{}".format(space_name)
+    space_url = f"https://huggingface.co/spaces/{space_name}"
 
-    print("Fetching Space from: {}".format(space_url))
+    print(f"Fetching Space from: {space_url}")
 
     headers = {}
     if api_key is not None:
@@ -433,22 +429,21 @@ def from_spaces(
         r"window.gradio_config = (.*?);[\s]*</script>", r.text
     )  # some basic regex to extract the config
     try:
-        config = json.loads(result.group(1))  # type: ignore
+        config = json.loads(result[1])
     except AttributeError:
-        raise ValueError("Could not load the Space: {}".format(space_name))
-    if "allow_flagging" in config:  # Create an Interface for Gradio 2.x Spaces
+        raise ValueError(f"Could not load the Space: {space_name}")
+    if "allow_flagging" in config:
         return from_spaces_interface(
             space_name, config, alias, api_key, iframe_url, **kwargs
         )
-    else:  # Create a Blocks for Gradio 3.x Spaces
-        if kwargs:
-            warnings.warn(
-                "You cannot override parameters for this Space by passing in kwargs. "
-                "Instead, please load the Space as a function and use it to create a "
-                "Blocks or Interface locally. You may find this Guide helpful: "
-                "https://gradio.app/using_blocks_like_functions/"
-            )
-        return from_spaces_blocks(space=space_name, api_key=api_key)
+    if kwargs:
+        warnings.warn(
+            "You cannot override parameters for this Space by passing in kwargs. "
+            "Instead, please load the Space as a function and use it to create a "
+            "Blocks or Interface locally. You may find this Guide helpful: "
+            "https://gradio.app/using_blocks_like_functions/"
+        )
+    return from_spaces_blocks(space=space_name, api_key=api_key)
 
 
 def from_spaces_blocks(space: str, api_key: str | None) -> Blocks:

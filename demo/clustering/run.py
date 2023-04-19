@@ -212,11 +212,9 @@ def plot_clusters(ax, X, labels):
 
 
 def cluster(dataset: str, n_clusters: int, clustering_algorithm: str):
-    if isinstance(n_clusters, dict):
-        n_clusters = n_clusters['value']
-    else:
-        n_clusters = int(n_clusters)
-
+    n_clusters = (
+        n_clusters['value'] if isinstance(n_clusters, dict) else n_clusters
+    )
     X, labels = DATA_MAPPING[dataset](n_clusters)
     model = MODEL_MAPPING[clustering_algorithm](X, labels, n_clusters=n_clusters)
     if hasattr(model, "labels_"):

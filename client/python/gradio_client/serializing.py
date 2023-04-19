@@ -261,7 +261,7 @@ class FileSerializable(Serializable):
                 assert filepath is not None, f"The 'name' field is missing in {x}"
                 if root_url is not None:
                     file_name = utils.download_tmp_copy_of_file(
-                        root_url + "file=" + filepath,
+                        f"{root_url}file={filepath}",
                         hf_token=hf_token,
                         dir=save_dir,
                     ).name
@@ -368,11 +368,10 @@ class VideoSerializable(FileSerializable):
         Convert from serialized representation of a file (base64) to a human-friendly
         version (string filepath). Optionally, save the file to the directory specified by `save_dir`
         """
-        if isinstance(x, (tuple, list)):
-            assert len(x) == 2, f"Expected tuple of length 2. Received: {x}"
-            x_as_list = [x[0], x[1]]
-        else:
+        if not isinstance(x, (tuple, list)):
             raise ValueError(f"Expected tuple of length 2. Received: {x}")
+        assert len(x) == 2, f"Expected tuple of length 2. Received: {x}"
+        x_as_list = [x[0], x[1]]
         deserialized_file = super().deserialize(x_as_list, save_dir, root_url, hf_token)  # type: ignore
         if isinstance(deserialized_file, list):
             return deserialized_file[0]  # ignore subtitles
@@ -405,9 +404,7 @@ class JSONSerializable(Serializable):
             x: String path to json file to read to get json string
             load_dir: Path to directory containing x
         """
-        if x is None or x == "":
-            return None
-        return utils.file_to_json(Path(load_dir) / x)
+        return None if x is None or x == "" else utils.file_to_json(Path(load_dir) / x)
 
     def deserialize(
         self,
@@ -487,7 +484,7 @@ class GallerySerializable(Serializable):
         gallery_path.mkdir(exist_ok=True, parents=True)
         captions = {}
         for img_data in x:
-            if isinstance(img_data, list) or isinstance(img_data, tuple):
+            if isinstance(img_data, (list, tuple)):
                 img_data, caption = img_data
             else:
                 caption = None

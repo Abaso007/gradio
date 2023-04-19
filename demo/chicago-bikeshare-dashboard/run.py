@@ -17,7 +17,7 @@ connection_string = (
 
 
 def get_count_ride_type():
-    df = pd.read_sql(
+    return pd.read_sql(
         """
         SELECT COUNT(ride_id) as n, rideable_type
         FROM rides
@@ -26,12 +26,11 @@ def get_count_ride_type():
     """,
         con=connection_string,
     )
-    return df
 
 
 def get_most_popular_stations():
 
-    df = pd.read_sql(
+    return pd.read_sql(
         """
     SELECT COUNT(ride_id) as n, MAX(start_station_name) as station
     FROM RIDES
@@ -42,7 +41,6 @@ def get_most_popular_stations():
     """,
         con=connection_string,
     )
-    return df
 
 
 with gr.Blocks() as demo:

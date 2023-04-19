@@ -78,14 +78,9 @@ def make_plot(plot_type):
             height=200
         ).add_selection(pts)
 
-        plot = alt.vconcat(
-            rect + circ,
-            bar
-        ).resolve_legend(
-            color="independent",
-            size="independent"
+        return alt.vconcat(rect + circ, bar).resolve_legend(
+            color="independent", size="independent"
         )
-        return plot
     elif plot_type == "radial":
         source = pd.DataFrame({"values": [12, 23, 47, 6, 52, 19]})
 

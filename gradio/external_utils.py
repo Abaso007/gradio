@@ -66,9 +66,10 @@ def cols_to_rows(
 
 
 def rows_to_cols(incoming_data: Dict) -> Dict[str, Dict[str, Dict[str, List[str]]]]:
-    data_column_wise = {}
-    for i, header in enumerate(incoming_data["headers"]):
-        data_column_wise[header] = [str(row[i]) for row in incoming_data["data"]]
+    data_column_wise = {
+        header: [str(row[i]) for row in incoming_data["data"]]
+        for i, header in enumerate(incoming_data["headers"])
+    }
     return {"inputs": {"data": data_column_wise}}
 
 
@@ -91,25 +92,19 @@ def encode_to_base64(r: requests.Response) -> str:
     # Handles the different ways HF API returns the prediction
     base64_repr = base64.b64encode(r.content).decode("utf-8")
     data_prefix = ";base64,"
-    # Case 1: base64 representation already includes data prefix
     if data_prefix in base64_repr:
         return base64_repr
-    else:
-        content_type = r.headers.get("content-type")
+    content_type = r.headers.get("content-type")
         # Case 2: the data prefix is a key in the response
-        if content_type == "application/json":
-            try:
-                content_type = r.json()[0]["content-type"]
-                base64_repr = r.json()[0]["blob"]
-            except KeyError:
-                raise ValueError(
-                    "Cannot determine content type returned" "by external API."
-                )
-        # Case 3: the data prefix is included in the response headers
-        else:
-            pass
-        new_base64 = "data:{};base64,".format(content_type) + base64_repr
-        return new_base64
+    if content_type == "application/json":
+        try:
+            content_type = r.json()[0]["content-type"]
+            base64_repr = r.json()[0]["blob"]
+        except KeyError:
+            raise ValueError(
+                "Cannot determine content type returned" "by external API."
+            )
+    return f"data:{content_type};base64,{base64_repr}"
 
 
 ##################

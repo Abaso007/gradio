@@ -20,8 +20,7 @@ def get_forecast(lib, time):
     m.fit(df1)
     future = m.make_future_dataframe(periods=90)
     forecast = m.predict(future)
-    fig1 = m.plot(forecast)
-    return fig1 
+    return m.plot(forecast) 
 
 with gr.Blocks() as demo:
     gr.Markdown(

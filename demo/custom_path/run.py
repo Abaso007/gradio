@@ -11,7 +11,7 @@ def read_main():
     return {"message": "This is your main app"}
 
 
-io = gr.Interface(lambda x: "Hello, " + x + "!", "textbox", "textbox")
+io = gr.Interface(lambda x: f"Hello, {x}!", "textbox", "textbox")
 app = gr.mount_gradio_app(app, io, path=CUSTOM_PATH)
 
 

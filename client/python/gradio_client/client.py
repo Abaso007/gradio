@@ -96,7 +96,6 @@ class Client:
                 print("Space is still building. Please wait...")
             while self._get_space_state() == SpaceStage.BUILDING:
                 time.sleep(2)  # so we don't get rate limited by the API
-                pass
         if state in utils.INVALID_RUNTIME:
             raise ValueError(
                 f"The current space is in the invalid state: {state}. "
@@ -210,17 +209,16 @@ class Client:
             current_info.hardware or huggingface_hub.SpaceHardware.CPU_BASIC
         )
         hardware = hardware or original_info.hardware
-        if not current_hardware == hardware:
+        if current_hardware != hardware:
             huggingface_hub.request_space_hardware(space_id, hardware)  # type: ignore
             print(
                 f"-------\nNOTE: this Space uses upgraded hardware: {hardware}... see billing info at https://huggingface.co/settings/billing\n-------"
             )
         if verbose:
             print("")
-        client = cls(
+        return cls(
             space_id, hf_token=hf_token, max_workers=max_workers, verbose=verbose
         )
-        return client
 
     def _get_space_state(self):
         if not self.space_id:
@@ -425,16 +423,15 @@ class Client:
             human_info += f"\nUnnamed API endpoints: {num_unnamed_endpoints}\n"
             for fn_index, endpoint_info in info["unnamed_endpoints"].items():
                 human_info += self._render_endpoints_info(fn_index, endpoint_info)
-        else:
-            if num_unnamed_endpoints > 0:
-                human_info += f"\nUnnamed API endpoints: {num_unnamed_endpoints}, to view, run Client.view_api(`all_endpoints=True`)\n"
+        elif num_unnamed_endpoints > 0:
+            human_info += f"\nUnnamed API endpoints: {num_unnamed_endpoints}, to view, run Client.view_api(`all_endpoints=True`)\n"
 
         if print_info:
             print(human_info)
-        if return_format == "str":
-            return human_info
-        elif return_format == "dict":
+        if return_format == "dict":
             return info
+        elif return_format == "str":
+            return human_info
 
     def reset_session(self) -> None:
         self.session_hash = str(uuid.uuid4())
@@ -444,12 +441,12 @@ class Client:
         name_or_index: str | int,
         endpoints_info: Dict[str, List[Dict[str, str]]],
     ) -> str:
-        parameter_names = list(p["label"] for p in endpoints_info["parameters"])
+        parameter_names = [p["label"] for p in endpoints_info["parameters"]]
         parameter_names = [utils.sanitize_parameter_names(p) for p in parameter_names]
         rendered_parameters = ", ".join(parameter_names)
         if rendered_parameters:
-            rendered_parameters = rendered_parameters + ", "
-        return_values = list(p["label"] for p in endpoints_info["returns"])
+            rendered_parameters += ", "
+        return_values = [p["label"] for p in endpoints_info["returns"]]
         return_values = [utils.sanitize_parameter_names(r) for r in return_values]
         rendered_return_values = ", ".join(return_values)
         if len(return_values) > 1:
@@ -506,7 +503,7 @@ class Client:
                 config_api_name = d.get("api_name")
                 if config_api_name is None:
                     continue
-                if "/" + config_api_name == api_name:
+                if f"/{config_api_name}" == api_name:
                     inferred_fn_index = i
                     break
             else:
@@ -541,19 +538,18 @@ class Client:
         )
         if r.ok:
             return r.json()
-        else:  # to support older versions of Gradio
-            r = requests.get(self.src, headers=self.headers)
-            # some basic regex to extract the config
-            result = re.search(r"window.gradio_config = (.*?);[\s]*</script>", r.text)
-            try:
-                config = json.loads(result.group(1))  # type: ignore
-            except AttributeError:
-                raise ValueError(f"Could not get Gradio config from: {self.src}")
-            if "allow_flagging" in config:
-                raise ValueError(
-                    "Gradio 2.x is not supported by this client. Please upgrade your Gradio app to Gradio 3.x or higher."
-                )
-            return config
+        r = requests.get(self.src, headers=self.headers)
+        # some basic regex to extract the config
+        result = re.search(r"window.gradio_config = (.*?);[\s]*</script>", r.text)
+        try:
+            config = json.loads(result[1])
+        except AttributeError:
+            raise ValueError(f"Could not get Gradio config from: {self.src}")
+        if "allow_flagging" in config:
+            raise ValueError(
+                "Gradio 2.x is not supported by this client. Please upgrade your Gradio app to Gradio 3.x or higher."
+            )
+        return config
 
 
 class Endpoint:
@@ -564,11 +560,11 @@ class Endpoint:
         self.fn_index = fn_index
         self.dependency = dependency
         api_name = dependency.get("api_name")
-        self.api_name: str | None = None if api_name is None else "/" + api_name
+        self.api_name: str | None = None if api_name is None else f"/{api_name}"
         self.use_ws = self._use_websocket(self.dependency)
         self.input_component_types = []
         self.output_component_types = []
-        self.root_url = client.src + "/" if not client.src.endswith("/") else client.src
+        self.root_url = client.src if client.src.endswith("/") else f"{client.src}/"
         try:
             self.serializers, self.deserializers = self._setup_serializers()
             self.is_valid = self.dependency[
@@ -653,9 +649,7 @@ class Endpoint:
     def _predict_resolve(self, *data) -> Any:
         """Needed for gradio.load(), which has a slightly different signature for serializing/deserializing"""
         outputs = self.make_predict()(*data)
-        if len(self.dependency["outputs"]) == 1:
-            return outputs[0]
-        return outputs
+        return outputs[0] if len(self.dependency["outputs"]) == 1 else outputs
 
     def _upload(
         self, file_paths: List[str | List[str]]
@@ -734,36 +728,31 @@ class Endpoint:
         uploaded_files = self._upload(files)
         self._add_uploaded_files_to_data(uploaded_files, data)
 
-        o = tuple([s.serialize(d) for s, d in zip(self.serializers, data)])
-        return o
+        return tuple(s.serialize(d) for s, d in zip(self.serializers, data))
 
     def deserialize(self, *data) -> Tuple | Any:
         assert len(data) == len(
             self.deserializers
         ), f"Expected {len(self.deserializers)} outputs, got {len(data)}"
         outputs = tuple(
-            [
-                s.deserialize(d, hf_token=self.client.hf_token, root_url=self.root_url)
-                for s, d, oct in zip(
-                    self.deserializers, data, self.output_component_types
-                )
-                if not oct == utils.STATE_COMPONENT
-            ]
+            s.deserialize(d, hf_token=self.client.hf_token, root_url=self.root_url)
+            for s, d, oct in zip(
+                self.deserializers, data, self.output_component_types
+            )
+            if oct != utils.STATE_COMPONENT
         )
-        if (
-            len(
+        return (
+            outputs[0]
+            if len(
                 [
                     oct
                     for oct in self.output_component_types
-                    if not oct == utils.STATE_COMPONENT
+                    if oct != utils.STATE_COMPONENT
                 ]
             )
             == 1
-        ):
-            output = outputs[0]
-        else:
-            output = outputs
-        return output
+            else outputs
+        )
 
     def _setup_serializers(self) -> Tuple[List[Serializable], List[Serializable]]:
         inputs = self.dependency["inputs"]
@@ -894,25 +883,24 @@ class Job(Future):
             job.result(timeout=5)
             >> 9
         """
-        if self.communicator:
-            timeout = timeout or float("inf")
+        if not self.communicator:
+            return super().result(timeout=timeout)
+        timeout = timeout or float("inf")
+        if self.future._exception:  # type: ignore
+            raise self.future._exception  # type: ignore
+        with self.communicator.lock:
+            if self.communicator.job.outputs:
+                return self.communicator.job.outputs[0]
+        start = datetime.now()
+        while True:
+            if (datetime.now() - start).seconds > timeout:
+                raise TimeoutError()
             if self.future._exception:  # type: ignore
                 raise self.future._exception  # type: ignore
             with self.communicator.lock:
                 if self.communicator.job.outputs:
                     return self.communicator.job.outputs[0]
-            start = datetime.now()
-            while True:
-                if (datetime.now() - start).seconds > timeout:
-                    raise TimeoutError()
-                if self.future._exception:  # type: ignore
-                    raise self.future._exception  # type: ignore
-                with self.communicator.lock:
-                    if self.communicator.job.outputs:
-                        return self.communicator.job.outputs[0]
-                time.sleep(0.01)
-        else:
-            return super().result(timeout=timeout)
+            time.sleep(0.01)
 
     def outputs(self) -> List[Tuple | Any]:
         """
@@ -936,9 +924,8 @@ class Job(Future):
         """
         if not self.communicator:
             return []
-        else:
-            with self.communicator.lock:
-                return self.communicator.job.outputs
+        with self.communicator.lock:
+            return self.communicator.job.outputs
 
     def status(self) -> StatusUpdate:
         """
@@ -969,17 +956,8 @@ class Job(Future):
                 eta=None,
             )
         if self.done():
-            if not self.future._exception:  # type: ignore
-                return StatusUpdate(
-                    code=Status.FINISHED,
-                    rank=0,
-                    queue_size=None,
-                    success=True,
-                    time=time,
-                    eta=None,
-                )
-            else:
-                return StatusUpdate(
+            return (
+                StatusUpdate(
                     code=Status.FINISHED,
                     rank=0,
                     queue_size=None,
@@ -987,25 +965,33 @@ class Job(Future):
                     time=time,
                     eta=None,
                 )
-        else:
-            if not self.communicator:
-                return StatusUpdate(
-                    code=Status.PROCESSING,
+                if self.future._exception
+                else StatusUpdate(
+                    code=Status.FINISHED,
                     rank=0,
                     queue_size=None,
-                    success=None,
+                    success=True,
                     time=time,
                     eta=None,
                 )
-            else:
-                with self.communicator.lock:
-                    eta = self.communicator.job.latest_status.eta
-                    if self.verbose and self.space_id and eta and eta > 30:
-                        print(
-                            f"Due to heavy traffic on this app, the prediction will take approximately {int(eta)} seconds."
-                            f"For faster predictions without waiting in queue, you may duplicate the space using: Client.duplicate({self.space_id})"
-                        )
-                    return self.communicator.job.latest_status
+            )
+        if not self.communicator:
+            return StatusUpdate(
+                code=Status.PROCESSING,
+                rank=0,
+                queue_size=None,
+                success=None,
+                time=time,
+                eta=None,
+            )
+        with self.communicator.lock:
+            eta = self.communicator.job.latest_status.eta
+            if self.verbose and self.space_id and eta and eta > 30:
+                print(
+                    f"Due to heavy traffic on this app, the prediction will take approximately {int(eta)} seconds."
+                    f"For faster predictions without waiting in queue, you may duplicate the space using: Client.duplicate({self.space_id})"
+                )
+            return self.communicator.job.latest_status
 
     def __getattr__(self, name):
         """Forwards any properties to the Future class."""

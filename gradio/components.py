@@ -141,18 +141,14 @@ class Component(Block, Serializable):
             warnings.warn(
                 "'rounded' styling is no longer supported. To round adjacent components together, place them in a Column(variant='box')."
             )
-            if isinstance(kwargs["rounded"], list) or isinstance(
-                kwargs["rounded"], tuple
-            ):
+            if isinstance(kwargs["rounded"], (list, tuple)):
                 put_deprecated_params_in_box = True
             kwargs.pop("rounded")
         if "margin" in kwargs:
             warnings.warn(
                 "'margin' styling is no longer supported. To place adjacent components together without margin, place them in a Column(variant='box')."
             )
-            if isinstance(kwargs["margin"], list) or isinstance(
-                kwargs["margin"], tuple
-            ):
+            if isinstance(kwargs["margin"], (list, tuple)):
                 put_deprecated_params_in_box = True
             kwargs.pop("margin")
         if "border" in kwargs:
@@ -165,9 +161,12 @@ class Component(Block, Serializable):
         if len(kwargs):
             for key in kwargs:
                 warnings.warn(f"Unknown style parameter: {key}")
-        if put_deprecated_params_in_box and isinstance(self.parent, (Row, Column)):
-            if self.parent.variant == "default":
-                self.parent.variant = "compact"
+        if (
+            put_deprecated_params_in_box
+            and isinstance(self.parent, (Row, Column))
+            and self.parent.variant == "default"
+        ):
+            self.parent.variant = "compact"
         return self
 
 
@@ -427,10 +426,7 @@ class Textbox(
 
         #
         self.lines = lines
-        if type == "text":
-            self.max_lines = max(lines, max_lines)
-        else:
-            self.max_lines = 1
+        self.max_lines = max(lines, max_lines) if type == "text" else 1
         self.placeholder = placeholder
         self.select: EventListenerMethod
         """
@@ -561,8 +557,7 @@ class Textbox(
         """
         result = []
         for token, score in zip(tokens, scores):
-            result.append((token, score))
-            result.append((self.interpretation_separator, 0))
+            result.extend(((token, score), (self.interpretation_separator, 0)))
         return result
 
     def style(
@@ -697,9 +692,7 @@ class Number(
         Returns:
             number representing function input
         """
-        if x is None:
-            return None
-        return self._round_to_precision(x, self.precision)
+        return None if x is None else self._round_to_precision(x, self.precision)
 
     def postprocess(self, y: float | None) -> float | None:
         """
@@ -710,9 +703,7 @@ class Number(
         Returns:
             number representing function output
         """
-        if y is None:
-            return None
-        return self._round_to_precision(y, self.precision)
+        return None if y is None else self._round_to_precision(y, self.precision)
 
     def set_interpret_parameters(
         self, steps: int = 3, delta: float = 1, delta_type: str = "percent"
@@ -733,8 +724,6 @@ class Number(
         x = self._round_to_precision(x, self.precision)
         if self.interpretation_delta_type == "percent":
             delta = 1.0 * self.interpretation_delta * x / 100
-        elif self.interpretation_delta_type == "absolute":
-            delta = self.interpretation_delta
         else:
             delta = self.interpretation_delta
         if self.precision == 0 and math.floor(delta) != delta:
@@ -760,7 +749,7 @@ class Number(
             Each tuple set represents a numeric value near the input and its corresponding interpretation score.
         """
         interpretation = list(zip(neighbors, scores))
-        interpretation.insert(int(len(interpretation) / 2), (x, None))
+        interpretation.insert(len(interpretation) // 2, (x, None))
         return interpretation
 
 
@@ -871,9 +860,7 @@ class Slider(
         n_steps = int((self.maximum - self.minimum) / self.step)
         step = random.randint(0, n_steps)
         value = self.minimum + step * self.step
-        # Round to number of decimals in step so that UI doesn't display long decimals
-        n_decimals = max(str(self.step)[::-1].find("."), 0)
-        if n_decimals:
+        if n_decimals := max(str(self.step)[::-1].find("."), 0):
             value = round(value, n_decimals)
         return value
 
@@ -1038,10 +1025,7 @@ class Checkbox(
         Returns:
             The first value represents the interpretation score if the input is False, and the second if the input is True.
         """
-        if x:
-            return scores[0], None
-        else:
-            return None, scores[0]
+        return (scores[0], None) if x else (None, scores[0])
 
 
 @document("style")
@@ -1205,10 +1189,7 @@ class CheckboxGroup(
         """
         final_scores = []
         for choice, score in zip(self.choices, scores):
-            if choice in x:
-                score_set = [score, None]
-            else:
-                score_set = [None, score]
+            score_set = [score, None] if choice in x else [None, score]
             final_scores.append(score_set)
         return final_scores
 
@@ -1351,10 +1332,7 @@ class Radio(
         if self.type == "value":
             return x
         elif self.type == "index":
-            if x is None:
-                return None
-            else:
-                return self.choices.index(x)
+            return None if x is None else self.choices.index(x)
         else:
             raise ValueError(
                 "Unknown type: "
@@ -1453,9 +1431,8 @@ class Dropdown(
             )
         self.type = type
         self.multiselect = multiselect
-        if multiselect:
-            if isinstance(value, str):
-                value = [value]
+        if multiselect and isinstance(value, str):
+            value = [value]
         if not multiselect and max_choices is not None:
             warnings.warn(
                 "The `max_choices` parameter is ignored when `multiselect` is False."
@@ -1852,7 +1829,7 @@ class Image(
         resized_and_cropped_image = np.array(x)
         try:
             from skimage.segmentation import slic
-        except (ImportError, ModuleNotFoundError):
+        except ImportError:
             raise ValueError(
                 "Error: running this interpretation for images requires scikit-image, please install it first."
             )
@@ -1886,7 +1863,7 @@ class Image(
         segments_slic, resized_and_cropped_image = self._segment_by_slic(x)
         tokens, masks, leave_one_out_tokens = [], [], []
         replace_color = np.mean(resized_and_cropped_image, axis=(0, 1))
-        for i, segment_value in enumerate(np.unique(segments_slic)):
+        for segment_value in np.unique(segments_slic):
             mask = segments_slic == segment_value
             image_screen = np.copy(resized_and_cropped_image)
             image_screen[segments_slic == segment_value] = replace_color
@@ -2102,7 +2079,7 @@ class Video(
         if needs_formatting or flip:
             format = f".{self.format if needs_formatting else uploaded_format}"
             output_options = ["-vf", "hflip", "-c:a", "copy"] if flip else []
-            output_options += ["-an"] if not self.include_audio else []
+            output_options += [] if self.include_audio else ["-an"]
             flip_suffix = "_flip" if flip else ""
             output_file_name = str(
                 file_name.with_name(f"{file_name.stem}{flip_suffix}{format}")
@@ -2184,11 +2161,7 @@ class Video(
 
         returned_format = video.split(".")[-1].lower()
 
-        if self.format is None or returned_format == self.format:
-            conversion_needed = False
-        else:
-            conversion_needed = True
-
+        conversion_needed = self.format is not None and returned_format != self.format
         # For cases where the video is a URL and does not need to be converted to another format, we can just return the URL
         if utils.validate_url(video) and not (conversion_needed):
             return {"name": video, "data": None, "is_file": True}
@@ -2205,7 +2178,7 @@ class Video(
             )
             video = processing_utils.convert_video_to_playable_mp4(video)
         if self.format is not None and returned_format != self.format:
-            output_file_name = video[0 : video.rindex(".") + 1] + self.format
+            output_file_name = video[:video.rindex(".") + 1] + self.format
             ff = FFmpeg(inputs={video: None}, outputs={output_file_name: None})
             ff.run()
             video = output_file_name
@@ -2484,7 +2457,7 @@ class Audio(
 
             # Handle the tokens
             token = np.copy(data)
-            token[0:start] = 0
+            token[:start] = 0
             token[stop:] = 0
             file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
             processing_utils.audio_to_file(sample_rate, token, file.name)
@@ -2719,30 +2692,26 @@ class File(
                     file.orig_name = file_name  # type: ignore
                     self.temp_files.add(str(utils.abspath(file.name)))
                 return file
-            elif (
-                self.type == "binary" or self.type == "bytes"
-            ):  # "bytes" is included for backwards compatibility
+            elif self.type in ["binary", "bytes"]:  # "bytes" is included for backwards compatibility
                 if is_file:
                     with open(file_name, "rb") as file_data:
                         return file_data.read()
                 return client_utils.decode_base64_to_binary(data)[0]
             else:
                 raise ValueError(
-                    "Unknown type: "
-                    + str(self.type)
-                    + ". Please choose from: 'file', 'bytes'."
+                    f"Unknown type: {str(self.type)}. Please choose from: 'file', 'bytes'."
                 )
 
         if self.file_count == "single":
-            if isinstance(x, list):
-                return process_single_file(x[0])
-            else:
-                return process_single_file(x)
+            return (
+                process_single_file(x[0])
+                if isinstance(x, list)
+                else process_single_file(x)
+            )
+        if isinstance(x, list):
+            return [process_single_file(f) for f in x]
         else:
-            if isinstance(x, list):
-                return [process_single_file(f) for f in x]
-            else:
-                return process_single_file(x)
+            return process_single_file(x)
 
     def postprocess(
         self, y: str | List[str] | None
@@ -3023,10 +2992,7 @@ class Dataframe(Changeable, Selectable, IOComponent, JSONSerializable):
     def __process_counts(count, default=3) -> Tuple[int, str]:
         if count is None:
             return (default, "dynamic")
-        if type(count) == int or type(count) == float:
-            return (int(count), "dynamic")
-        else:
-            return count
+        return (int(count), "dynamic") if type(count) in [int, float] else count
 
     @staticmethod
     def __validate_headers(headers: List[str] | None, col_count: int):
@@ -3045,10 +3011,10 @@ class Dataframe(Changeable, Selectable, IOComponent, JSONSerializable):
         if cls.markdown_parser is None:
             cls.markdown_parser = utils.get_markdown_parser()
 
-        for i in range(len(data)):
-            for j in range(len(data[i])):
+        for datum in data:
+            for j in range(len(datum)):
                 if datatype[j] == "markdown":
-                    data[i][j] = cls.markdown_parser.render(data[i][j])
+                    datum[j] = cls.markdown_parser.render(datum[j])
 
         return data
 
@@ -3460,21 +3426,19 @@ class UploadButton(Clickable, Uploadable, IOComponent, FileSerializable):
                 return client_utils.decode_base64_to_binary(data)[0]
             else:
                 raise ValueError(
-                    "Unknown type: "
-                    + str(self.type)
-                    + ". Please choose from: 'file', 'bytes'."
+                    f"Unknown type: {str(self.type)}. Please choose from: 'file', 'bytes'."
                 )
 
         if self.file_count == "single":
-            if isinstance(x, list):
-                return process_single_file(x[0])
-            else:
-                return process_single_file(x)
+            return (
+                process_single_file(x[0])
+                if isinstance(x, list)
+                else process_single_file(x)
+            )
+        if isinstance(x, list):
+            return [process_single_file(f) for f in x]
         else:
-            if isinstance(x, list):
-                return [process_single_file(f) for f in x]
-            else:
-                return process_single_file(x)
+            return process_single_file(x)
 
     def style(
         self,
@@ -3586,10 +3550,7 @@ class ColorPicker(Changeable, Submittable, Blurrable, IOComponent, StringSeriali
         Returns:
             text
         """
-        if x is None:
-            return None
-        else:
-            return str(x)
+        return None if x is None else str(x)
 
     def postprocess(self, y: str | None) -> str | None:
         """
@@ -3599,10 +3560,7 @@ class ColorPicker(Changeable, Submittable, Blurrable, IOComponent, StringSeriali
         Returns:
             text
         """
-        if y is None:
-            return None
-        else:
-            return str(y)
+        return None if y is None else str(y)
 
 
 ############################
@@ -3705,9 +3663,7 @@ class Label(Changeable, Selectable, IOComponent, JSONSerializable):
                 ],
             }
         raise ValueError(
-            "The `Label` output interface expects one of: a string label, or an int label, a "
-            "float label, or a dictionary whose keys are labels and values are confidences. "
-            "Instead, got a {}".format(type(y))
+            f"The `Label` output interface expects one of: a string label, or an int label, a float label, or a dictionary whose keys are labels and values are confidences. Instead, got a {type(y)}"
         )
 
     @staticmethod
@@ -3843,7 +3799,7 @@ class HighlightedText(Changeable, Selectable, IOComponent, JSONSerializable):
         show_label: bool | None = None,
         visible: bool | None = None,
     ):
-        updated_config = {
+        return {
             "color_map": color_map,
             "show_legend": show_legend,
             "label": label,
@@ -3852,7 +3808,6 @@ class HighlightedText(Changeable, Selectable, IOComponent, JSONSerializable):
             "value": value,
             "__type__": "update",
         }
-        return updated_config
 
     def postprocess(
         self, y: List[Tuple[str, str | float | None]] | Dict | None
@@ -3880,35 +3835,35 @@ class HighlightedText(Changeable, Selectable, IOComponent, JSONSerializable):
                 index = 0
                 entities = sorted(entities, key=lambda x: x["start"])
                 for entity in entities:
-                    list_format.append((text[index : entity["start"]], None))
-                    list_format.append(
-                        (text[entity["start"] : entity["end"]], entity["entity"])
+                    list_format.extend(
+                        (
+                            (text[index : entity["start"]], None),
+                            (
+                                text[entity["start"] : entity["end"]],
+                                entity["entity"],
+                            ),
+                        )
                     )
                     index = entity["end"]
                 list_format.append((text[index:], None))
                 y = list_format
-        if self.combine_adjacent:
-            output = []
-            running_text, running_category = None, None
-            for text, category in y:
-                if running_text is None:
-                    running_text = text
-                    running_category = category
-                elif category == running_category:
-                    running_text += self.adjacent_separator + text
-                elif not text:
-                    # Skip fully empty item, these get added in processing
-                    # of dictionaries.
-                    pass
-                else:
-                    output.append((running_text, running_category))
-                    running_text = text
-                    running_category = category
-            if running_text is not None:
-                output.append((running_text, running_category))
-            return output
-        else:
+        if not self.combine_adjacent:
             return y
+        output = []
+        running_text, running_category = None, None
+        for text, category in y:
+            if running_text is None:
+                running_text = text
+                running_category = category
+            elif category == running_category:
+                running_text += self.adjacent_separator + text
+            elif text:
+                output.append((running_text, running_category))
+                running_text = text
+                running_category = category
+        if running_text is not None:
+            output.append((running_text, running_category))
+        return output
 
     def style(
         self,
@@ -4007,7 +3962,7 @@ class AnnotatedImage(Selectable, IOComponent, JSONSerializable):
         show_label: bool | None = None,
         visible: bool | None = None,
     ):
-        updated_config = {
+        return {
             "show_legend": show_legend,
             "label": label,
             "show_label": show_label,
@@ -4015,7 +3970,6 @@ class AnnotatedImage(Selectable, IOComponent, JSONSerializable):
             "value": value,
             "__type__": "update",
         }
-        return updated_config
 
     def postprocess(
         self,
@@ -4055,7 +4009,7 @@ class AnnotatedImage(Selectable, IOComponent, JSONSerializable):
         def hex_to_rgb(value):
             value = value.lstrip("#")
             lv = len(value)
-            return list(int(value[i : i + lv // 3], 16) for i in range(0, lv, lv // 3))
+            return [int(value[i : i + lv // 3], 16) for i in range(0, lv, lv // 3)]
 
         for mask, label in y[1]:
             mask_array = np.zeros((base_img.shape[0], base_img.shape[1]))
@@ -4070,10 +4024,7 @@ class AnnotatedImage(Selectable, IOComponent, JSONSerializable):
                 mask_array[y1 : y1 + BORDER_WIDTH, x1:x2] = 1
                 mask_array[y2 - BORDER_WIDTH : y2, x1:x2] = 1
 
-            if label in color_map:
-                rgb_color = hex_to_rgb(color_map[label])
-            else:
-                rgb_color = [255, 0, 0]
+            rgb_color = hex_to_rgb(color_map[label]) if label in color_map else [255, 0, 0]
             colored_mask = np.zeros((base_img.shape[0], base_img.shape[1], 4))
             solid_mask = np.copy(mask_array)
             solid_mask[solid_mask > 0] = 1
@@ -4177,14 +4128,13 @@ class JSON(Changeable, IOComponent, JSONSerializable):
         show_label: bool | None = None,
         visible: bool | None = None,
     ):
-        updated_config = {
+        return {
             "label": label,
             "show_label": show_label,
             "visible": visible,
             "value": value,
             "__type__": "update",
         }
-        return updated_config
 
     def postprocess(self, y: Dict | List | str | None) -> Dict | List | None:
         """
@@ -4195,10 +4145,7 @@ class JSON(Changeable, IOComponent, JSONSerializable):
         """
         if y is None:
             return None
-        if isinstance(y, str):
-            return json.loads(y)
-        else:
-            return y
+        return json.loads(y) if isinstance(y, str) else y
 
     def style(self, *, container: bool | None = None, **kwargs):
         """
@@ -4268,14 +4215,13 @@ class HTML(Changeable, IOComponent, StringSerializable):
         show_label: bool | None = None,
         visible: bool | None = None,
     ):
-        updated_config = {
+        return {
             "label": label,
             "show_label": show_label,
             "visible": visible,
             "value": value,
             "__type__": "update",
         }
-        return updated_config
 
     def style(self):
         return self
@@ -4338,14 +4284,13 @@ class Gallery(IOComponent, GallerySerializable, Selectable):
         show_label: bool | None = None,
         visible: bool | None = None,
     ):
-        updated_config = {
+        return {
             "label": label,
             "show_label": show_label,
             "visible": visible,
             "value": value,
             "__type__": "update",
         }
-        return updated_config
 
     def get_config(self):
         return {
@@ -4370,7 +4315,7 @@ class Gallery(IOComponent, GallerySerializable, Selectable):
         output = []
         for img in y:
             caption = None
-            if isinstance(img, tuple) or isinstance(img, list):
+            if isinstance(img, (tuple, list)):
                 img, caption = img
             if isinstance(img, np.ndarray):
                 file = processing_utils.save_array_to_file(img)
@@ -4530,14 +4475,13 @@ class Chatbot(Changeable, Selectable, IOComponent, JSONSerializable):
         show_label: bool | None = None,
         visible: bool | None = None,
     ):
-        updated_config = {
+        return {
             "label": label,
             "show_label": show_label,
             "visible": visible,
             "value": value,
             "__type__": "update",
         }
-        return updated_config
 
     def _preprocess_chat_messages(
         self, chat_message: str | Dict | None
@@ -4594,9 +4538,8 @@ class Chatbot(Changeable, Selectable, IOComponent, JSONSerializable):
             children = self.md.parseInline(chat_message)[0].children
             if children and any("code" in child.tag for child in children):
                 return self.md.render(chat_message)
-            else:
-                chat_message = chat_message.replace("\n", "<br>")
-                return self.md.renderInline(chat_message)
+            chat_message = chat_message.replace("\n", "<br>")
+            return self.md.renderInline(chat_message)
         else:
             raise ValueError(f"Invalid message for Chatbot component: {chat_message}")
 
@@ -4712,14 +4655,13 @@ class Model3D(Changeable, Editable, Clearable, IOComponent, FileSerializable):
         show_label: bool | None = None,
         visible: bool | None = None,
     ):
-        updated_config = {
+        return {
             "label": label,
             "show_label": show_label,
             "visible": visible,
             "value": value,
             "__type__": "update",
         }
-        return updated_config
 
     def preprocess(self, x: Dict[str, str] | None) -> str | None:
         """
@@ -4735,12 +4677,11 @@ class Model3D(Changeable, Editable, Clearable, IOComponent, FileSerializable):
             x["data"],
             x.get("is_file", False),
         )
-        if is_file:
-            temp_file_path = self.make_temp_copy_if_needed(file_name)
-        else:
-            temp_file_path = self.base64_to_temp_file_if_needed(file_data, file_name)
-
-        return temp_file_path
+        return (
+            self.make_temp_copy_if_needed(file_name)
+            if is_file
+            else self.base64_to_temp_file_if_needed(file_data, file_name)
+        )
 
     def postprocess(self, y: str | None) -> Dict[str, str] | None:
         """
@@ -4751,12 +4692,11 @@ class Model3D(Changeable, Editable, Clearable, IOComponent, FileSerializable):
         """
         if y is None:
             return y
-        data = {
+        return {
             "name": self.make_temp_copy_if_needed(y),
             "data": None,
             "is_file": True,
         }
-        return data
 
     def style(self, **kwargs):
         """
@@ -4837,14 +4777,13 @@ class Plot(Changeable, Clearable, IOComponent, JSONSerializable):
         show_label: bool | None = None,
         visible: bool | None = None,
     ):
-        updated_config = {
+        return {
             "label": label,
             "show_label": show_label,
             "visible": visible,
             "value": value,
             "__type__": "update",
         }
-        return updated_config
 
     def postprocess(self, y) -> Dict[str, str] | None:
         """
@@ -4865,10 +4804,7 @@ class Plot(Changeable, Clearable, IOComponent, JSONSerializable):
             out_y = json.dumps(json_item(y))
         else:
             is_altair = "altair" in y.__module__
-            if is_altair:
-                dtype = "altair"
-            else:
-                dtype = "plotly"
+            dtype = "altair" if is_altair else "plotly"
             out_y = y.to_json()
         return {"type": dtype, "plot": out_y}
 
@@ -4884,12 +4820,9 @@ class AltairPlot:
     @staticmethod
     def create_legend(position, title):
         if position == "none":
-            legend = None
-        else:
-            position = {"orient": position} if position else {}
-            legend = {"title": title, **position}
-
-        return legend
+            return None
+        position = {"orient": position} if position else {}
+        return {"title": title, **position}
 
     @staticmethod
     def create_scale(limit):
@@ -5107,7 +5040,7 @@ class ScatterPlot(Plot):
             chart = ScatterPlot.create_plot(value, *properties)
             value = {"type": "altair", "plot": chart.to_json(), "chart": "scatter"}
 
-        updated_config = {
+        return {
             "label": label,
             "show_label": show_label,
             "visible": visible,
@@ -5115,7 +5048,6 @@ class ScatterPlot(Plot):
             "caption": caption,
             "__type__": "update",
         }
-        return updated_config
 
     @staticmethod
     def create_plot(
@@ -5440,7 +5372,7 @@ class LinePlot(Plot):
             chart = LinePlot.create_plot(value, *properties)
             value = {"type": "altair", "plot": chart.to_json(), "chart": "line"}
 
-        updated_config = {
+        return {
             "label": label,
             "show_label": show_label,
             "visible": visible,
@@ -5448,7 +5380,6 @@ class LinePlot(Plot):
             "caption": caption,
             "__type__": "update",
         }
-        return updated_config
 
     @staticmethod
     def create_plot(
@@ -5767,7 +5698,7 @@ class BarPlot(Plot):
             chart = BarPlot.create_plot(value, *properties)
             value = {"type": "altair", "plot": chart.to_json(), "chart": "bar"}
 
-        updated_config = {
+        return {
             "label": label,
             "show_label": show_label,
             "visible": visible,
@@ -5775,7 +5706,6 @@ class BarPlot(Plot):
             "caption": caption,
             "__type__": "update",
         }
-        return updated_config
 
     @staticmethod
     def create_plot(
@@ -5957,12 +5887,11 @@ class Markdown(IOComponent, Changeable, StringSerializable):
         value: Any | Literal[_Keywords.NO_VALUE] | None = _Keywords.NO_VALUE,
         visible: bool | None = None,
     ):
-        updated_config = {
+        return {
             "visible": visible,
             "value": value,
             "__type__": "update",
         }
-        return updated_config
 
     def style(self):
         return self
@@ -6050,8 +5979,7 @@ class Code(Changeable, IOComponent, StringSerializable):
             with open(y[0]) as file_data:
                 return file_data.read()
         else:
-            unindented_y = inspect.cleandoc(y)
-            return unindented_y
+            return inspect.cleandoc(y)
 
     @staticmethod
     def update(

@@ -495,32 +495,28 @@ with gr.Blocks(theme=gr.themes.Base(), css=css, title="Gradio Theme Builder") as
         def load_theme(theme_name):
             theme = [theme for theme in themes if theme.__name__ == theme_name][0]
 
-            expand_color = lambda color: list(
-                [
-                    color.c50,
-                    color.c100,
-                    color.c200,
-                    color.c300,
-                    color.c400,
-                    color.c500,
-                    color.c600,
-                    color.c700,
-                    color.c800,
-                    color.c900,
-                    color.c950,
-                ]
-            )
-            expand_size = lambda size: list(
-                [
-                    size.xxs,
-                    size.xs,
-                    size.sm,
-                    size.md,
-                    size.lg,
-                    size.xl,
-                    size.xxl,
-                ]
-            )
+            expand_color = lambda color: [
+                color.c50,
+                color.c100,
+                color.c200,
+                color.c300,
+                color.c400,
+                color.c500,
+                color.c600,
+                color.c700,
+                color.c800,
+                color.c900,
+                color.c950,
+            ]
+            expand_size = lambda size: [
+                size.xxs,
+                size.xs,
+                size.sm,
+                size.md,
+                size.lg,
+                size.xl,
+                size.xxl,
+            ]
             parameters = inspect.signature(theme.__init__).parameters
             primary_hue = parameters["primary_hue"].default
             secondary_hue = parameters["secondary_hue"].default
@@ -585,17 +581,14 @@ with gr.Blocks(theme=gr.themes.Base(), css=css, title="Gradio Theme Builder") as
             spacing_size = parameters["spacing_size"].default
             radius_size = parameters["radius_size"].default
             font = parameters["font"].default
-            font = [font] if not isinstance(font, Iterable) else font
+            font = font if isinstance(font, Iterable) else [font]
             font = [
-                gr.themes.Font(f) if not isinstance(f, gr.themes.Font) else f
-                for f in font
+                f if isinstance(f, gr.themes.Font) else gr.themes.Font(f) for f in font
             ]
             font_mono = parameters["font_mono"].default
-            font_mono = (
-                [font_mono] if not isinstance(font_mono, Iterable) else font_mono
-            )
+            font_mono = font_mono if isinstance(font_mono, Iterable) else [font_mono]
             font_mono = [
-                gr.themes.Font(f) if not isinstance(f, gr.themes.Font) else f
+                f if isinstance(f, gr.themes.Font) else gr.themes.Font(f)
                 for f in font_mono
             ]
 
@@ -652,28 +645,28 @@ with gr.Blocks(theme=gr.themes.Base(), css=css, title="Gradio Theme Builder") as
                 if diff:
                     specific_core_diffs[value_name] = (source_class, final_attr_values)
 
-            font_diffs = {}
-
             final_main_fonts = [font for font in final_main_fonts if font[0]]
             final_mono_fonts = [font for font in final_mono_fonts if font[0]]
             font = font[:4]
             font_mono = font_mono[:4]
-            for base_font_set, theme_font_set, font_set_name in [
-                (font, final_main_fonts, "font"),
-                (font_mono, final_mono_fonts, "font_mono"),
-            ]:
-                if len(base_font_set) != len(theme_font_set) or any(
+            font_diffs = {
+                font_set_name: [
+                    f"gr.themes.GoogleFont('{font_name}')"
+                    if is_google_font
+                    else f"'{font_name}'"
+                    for font_name, is_google_font in theme_font_set
+                ]
+                for base_font_set, theme_font_set, font_set_name in [
+                    (font, final_main_fonts, "font"),
+                    (font_mono, final_mono_fonts, "font_mono"),
+                ]
+                if len(base_font_set) != len(theme_font_set)
+                or any(
                     base_font.name != theme_font[0]
                     or isinstance(base_font, gr.themes.GoogleFont) != theme_font[1]
                     for base_font, theme_font in zip(base_font_set, theme_font_set)
-                ):
-                    font_diffs[font_set_name] = [
-                        f"gr.themes.GoogleFont('{font_name}')"
-                        if is_google_font
-                        else f"'{font_name}'"
-                        for font_name, is_google_font in theme_font_set
-                    ]
-
+                )
+            }
             newline = "\n"
 
             core_diffs_code = ""
@@ -689,7 +682,7 @@ with gr.Blocks(theme=gr.themes.Base(), css=css, title="Gradio Theme Builder") as
 
             font_diffs_code = ""
 
-            if len(font_diffs) > 0:
+            if font_diffs:
                 font_diffs_code = "".join(
                     [
                         f"""    {font_set_name}=[{", ".join(fonts)}],\n"""
@@ -708,25 +701,24 @@ with gr.Blocks(theme=gr.themes.Base(), css=css, title="Gradio Theme Builder") as
             newline = "\n"
 
             vars_diff_code = ""
-            if len(var_diffs) > 0:
+            if var_diffs:
                 vars_diff_code = f""".set(
-    {(',' + newline + "    ").join([f"{k}='{v}'" for k, v in var_diffs.items()])}
+    {f',{newline}    '.join([f"{k}='{v}'" for k, v in var_diffs.items()])}
 )"""
 
-            output = f"""
+            return f"""
 import gradio as gr
 
 theme = gr.themes.{base_theme_name}({newline if core_diffs_code or font_diffs_code else ""}{core_diffs_code}{font_diffs_code}){vars_diff_code}
 
 with gr.Blocks(theme=theme) as demo:
     ..."""
-            return output
 
         history = gr.State([])
         current_theme = gr.State(None)
 
         def render_variables(history, base_theme, *args):
-            primary_hue, secondary_hue, neutral_hue = args[0:3]
+            primary_hue, secondary_hue, neutral_hue = args[:3]
             primary_hues = args[3 : 3 + len(palette_range)]
             secondary_hues = args[3 + len(palette_range) : 3 + 2 * len(palette_range)]
             neutral_hues = args[3 + 2 * len(palette_range) : 3 + 3 * len(palette_range)]
@@ -800,10 +792,11 @@ with gr.Blocks(theme=theme) as demo:
             final_radius_size = gr.themes.Size(*radius_sizes)
 
             final_main_fonts = []
-            font_weights = set()
-            for attr, val in zip(flat_variables, remaining_args):
-                if "weight" in attr:
-                    font_weights.add(val)
+            font_weights = {
+                val
+                for attr, val in zip(flat_variables, remaining_args)
+                if "weight" in attr
+            }
             font_weights = sorted(font_weights)
 
             for main_font, is_google in zip(main_fonts, main_is_google):
@@ -831,9 +824,7 @@ with gr.Blocks(theme=theme) as demo:
                 font_mono=final_mono_fonts,
             )
 
-            theme.set(
-                **{attr: val for attr, val in zip(flat_variables, remaining_args)}
-            )
+            theme.set(**dict(zip(flat_variables, remaining_args)))
             new_step = (base_theme, args)
             if len(history) == 0 or str(history[-1]) != str(new_step):
                 history.append(new_step)
@@ -941,10 +932,9 @@ with gr.Blocks(theme=theme) as demo:
         def undo(history_var):
             if len(history_var) <= 1:
                 return {history: gr.skip()}
-            else:
-                history_var.pop()
-                old = history_var.pop()
-                return [history_var, old[0]] + list(old[1])
+            history_var.pop()
+            old = history_var.pop()
+            return [history_var, old[0]] + list(old[1])
 
         attach_rerender(
             undo_btn.click(

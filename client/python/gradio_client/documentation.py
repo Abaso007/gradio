@@ -22,8 +22,8 @@ def extract_instance_attr_doc(cls, attr):
     lines = [line.strip() for line in code.split("\n")]
     i = None
     for i, line in enumerate(lines):
-        if line.startswith("self." + attr + ":") or line.startswith(
-            "self." + attr + " ="
+        if line.startswith(f"self.{attr}:") or line.startswith(
+            f"self.{attr} ="
         ):
             break
     assert i is not None, f"Could not find {attr} in {cls.__name__}"
@@ -31,13 +31,11 @@ def extract_instance_attr_doc(cls, attr):
     end_line = lines.index('"""', start_line + 1)
     for j in range(i + 1, start_line):
         assert not lines[j].startswith("self."), (
-            f"Found another attribute before docstring for {attr} in {cls.__name__}: "
-            + lines[j]
+            f"Found another attribute before docstring for {attr} in {cls.__name__}: {lines[j]}"
             + "\n start:"
             + lines[i]
         )
-    doc_string = " ".join(lines[start_line + 1 : end_line])
-    return doc_string
+    return " ".join(lines[start_line + 1 : end_line])
 
 
 def document(*fns, inherit=False):
@@ -99,7 +97,9 @@ def document_fn(fn: Callable, cls) -> Tuple[str, List[Dict], Dict, str | None]:
                 line.startswith("    ") or line.strip() == ""
             ), f"Documentation format for {fn.__name__} has format error in line: {line}"
             line = line[4:]
-            if mode == "parameter":
+            if mode == "example":
+                examples.append(line)
+            elif mode == "parameter":
                 colon_index = line.index(": ")
                 assert (
                     colon_index > -1
@@ -109,8 +109,6 @@ def document_fn(fn: Callable, cls) -> Tuple[str, List[Dict], Dict, str | None]:
                 parameters[parameter] = parameter_doc
             elif mode == "return":
                 returns.append(line)
-            elif mode == "example":
-                examples.append(line)
     description_doc = " ".join(description)
     parameter_docs = []
     for param_name, param in signature.parameters.items():
@@ -128,7 +126,7 @@ def document_fn(fn: Callable, cls) -> Tuple[str, List[Dict], Dict, str | None]:
         if param.default != inspect.Parameter.empty:
             default = param.default
             if type(default) == str:
-                default = '"' + default + '"'
+                default = f'"{default}"'
             if default.__class__.__module__ != "builtins":
                 default = f"{default.__class__.__name__}()"
             parameter_doc["default"] = default
@@ -139,16 +137,13 @@ def document_fn(fn: Callable, cls) -> Tuple[str, List[Dict], Dict, str | None]:
                 parameter_doc["args"] = True
         parameter_docs.append(parameter_doc)
     assert (
-        len(parameters) == 0
+        not parameters
     ), f"Documentation format for {fn.__name__} documents nonexistent parameters: {''.join(parameters.keys())}"
-    if len(returns) == 0:
+    if not returns or len(returns) != 1:
         return_docs = {}
-    elif len(returns) == 1:
-        return_docs = {"annotation": signature.return_annotation, "doc": returns[0]}
     else:
-        return_docs = {}
-        # raise ValueError("Does not support multiple returns yet.")
-    examples_doc = "\n".join(examples) if len(examples) > 0 else None
+        return_docs = {"annotation": signature.return_annotation, "doc": returns[0]}
+    examples_doc = "\n".join(examples) if examples else None
     return description_doc, parameter_docs, return_docs, examples_doc
 
 
@@ -168,14 +163,13 @@ def document_cls(cls):
             tag = line[: line.index(":")].lower()
             value = line[line.index(":") + 2 :]
             tags[tag] = value
+        elif mode == "description":
+            description_lines.append(line if line.strip() else "<br>")
         else:
-            if mode == "description":
-                description_lines.append(line if line.strip() else "<br>")
-            else:
-                assert (
-                    line.startswith("    ") or not line.strip()
-                ), f"Documentation format for {cls.__name__} has format error in line: {line}"
-                tags[mode].append(line[4:])
+            assert (
+                line.startswith("    ") or not line.strip()
+            ), f"Documentation format for {cls.__name__} has format error in line: {line}"
+            tags[mode].append(line[4:])
     if "example" in tags:
         example = "\n".join(tags["example"])
         del tags["example"]

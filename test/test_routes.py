@@ -32,8 +32,7 @@ os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
 def test_client():
     io = Interface(lambda x: x + x, "text", "text")
     app, _, _ = io.launch(prevent_thread_lock=True)
-    test_client = TestClient(app)
-    yield test_client
+    yield TestClient(app)
     io.close()
     close_all()
 
@@ -296,8 +295,7 @@ class TestRoutes:
 class TestGeneratorRoutes:
     def test_generator(self):
         def generator(string):
-            for char in string:
-                yield char
+            yield from string
 
         io = Interface(generator, "text", "text")
         app, _, _ = io.queue().launch(prevent_thread_lock=True)

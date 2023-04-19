@@ -90,14 +90,11 @@ async def main(host, n_results=100):
     results = []
     while len(results) < n_results:
         batch_results = await asyncio.gather(*[get_prediction(host) for _ in range(20)])
-        for result in batch_results:
-            if result:
-                results.append(result)
-
+        results.extend(result for result in batch_results if result)
     data = pd.DataFrame(results).groupby("fn_to_hit").agg({"mean"})
     data.columns = data.columns.get_level_values(0)
     data = data.reset_index()
-    data = {"fn_to_hit": data["fn_to_hit"].to_list(), "duration": data["duration"].to_list()}                
+    data = {"fn_to_hit": data["fn_to_hit"].to_list(), "duration": data["duration"].to_list()}
     return data
 
 

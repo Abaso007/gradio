@@ -33,8 +33,7 @@ def queue() -> Queue:
 @pytest.fixture()
 def mock_event() -> Event:
     websocket = AsyncMock()
-    event = Event(websocket=websocket, session_hash="test", fn_index=0)
-    yield event
+    yield Event(websocket=websocket, session_hash="test", fn_index=0)
 
 
 class TestQueueMethods:

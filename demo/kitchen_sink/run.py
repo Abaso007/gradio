@@ -94,10 +94,17 @@ demo = gr.Interface(
         gr.Slider(10, 20, value=15, label="Slider: 10 - 20"),
         gr.Slider(maximum=20, step=0.04, label="Slider: step @ 0.04"),
         gr.Checkbox(label="Checkbox"),
-        gr.CheckboxGroup(label="CheckboxGroup", choices=CHOICES, value=CHOICES[0:2]),
+        gr.CheckboxGroup(
+            label="CheckboxGroup", choices=CHOICES, value=CHOICES[:2]
+        ),
         gr.Radio(label="Radio", choices=CHOICES, value=CHOICES[2]),
         gr.Dropdown(label="Dropdown", choices=CHOICES),
-        gr.Dropdown(label="Multiselect Dropdown (Max choice: 2)", choices=CHOICES, multiselect=True, max_choices=2),
+        gr.Dropdown(
+            label="Multiselect Dropdown (Max choice: 2)",
+            choices=CHOICES,
+            multiselect=True,
+            max_choices=2,
+        ),
         gr.Image(label="Image"),
         gr.Image(label="Image w/ Cropper", tool="select"),
         gr.Image(label="Sketchpad", source="canvas"),
@@ -107,7 +114,9 @@ demo = gr.Interface(
         gr.Audio(label="Microphone", source="microphone"),
         gr.File(label="File"),
         gr.Dataframe(label="Dataframe", headers=["Name", "Age", "Gender"]),
-        gr.Timeseries(x="time", y=["price", "value"], colors=["pink", "purple"]),
+        gr.Timeseries(
+            x="time", y=["price", "value"], colors=["pink", "purple"]
+        ),
     ],
     outputs=[
         gr.Textbox(label="Textbox"),

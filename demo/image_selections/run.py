@@ -9,11 +9,10 @@ with gr.Blocks() as demo:
 
     def get_select_coords(img, tolerance, evt: gr.SelectData):
         visited_pixels = set()
-        pixels_in_queue = set()
         pixels_in_segment = set()
         start_pixel = img[evt.index[1], evt.index[0]]
-        pixels_in_queue.add((evt.index[1], evt.index[0]))
-        while len(pixels_in_queue) > 0:
+        pixels_in_queue = {(evt.index[1], evt.index[0])}
+        while pixels_in_queue:
             pixel = pixels_in_queue.pop()
             visited_pixels.add(pixel)
             neighbors = []

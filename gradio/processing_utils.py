@@ -58,7 +58,7 @@ def encode_plot_to_base64(plt):
         plt.savefig(output_bytes, format="png")
         bytes_data = output_bytes.getvalue()
     base64_str = str(base64.b64encode(bytes_data), "utf-8")
-    return "data:image/png;base64," + base64_str
+    return f"data:image/png;base64,{base64_str}"
 
 
 def save_array_to_file(image_array, dir=None):
@@ -89,7 +89,7 @@ def encode_pil_to_base64(pil_image):
         pil_image.save(output_bytes, "PNG", pnginfo=get_pil_metadata(pil_image))
         bytes_data = output_bytes.getvalue()
     base64_str = str(base64.b64encode(bytes_data), "utf-8")
-    return "data:image/png;base64," + base64_str
+    return f"data:image/png;base64,{base64_str}"
 
 
 def encode_array_to_base64(image_array):
@@ -98,7 +98,7 @@ def encode_array_to_base64(image_array):
         pil_image.save(output_bytes, "PNG")
         bytes_data = output_bytes.getvalue()
     base64_str = str(base64.b64encode(bytes_data), "utf-8")
-    return "data:image/png;base64," + base64_str
+    return f"data:image/png;base64,{base64_str}"
 
 
 def resize_and_crop(img, size, crop_type="center"):
@@ -358,10 +358,7 @@ def _convert(image, dtype, force_copy=False, uniform=False):
 
     image = np.asarray(image)
     dtypeobj_in = image.dtype
-    if dtype is np.floating:
-        dtypeobj_out = np.dtype("float64")
-    else:
-        dtypeobj_out = np.dtype(dtype)
+    dtypeobj_out = np.dtype("float64") if dtype is np.floating else np.dtype(dtype)
     dtype_in = dtypeobj_in.type
     dtype_out = dtypeobj_out.type
     kind_in = dtypeobj_in.kind
@@ -531,4 +528,4 @@ def convert_video_to_playable_mp4(video_path: str) -> str:
     except FFRuntimeError as e:
         print(f"Error converting video to browser-playable format {str(e)}")
         output_path = video_path
-    return str(output_path)
+    return output_path

@@ -143,25 +143,21 @@ class Examples:
             examples = [[e] for e in examples]
         elif isinstance(examples, str):
             if not Path(examples).exists():
-                raise FileNotFoundError(
-                    "Could not find examples directory: " + examples
-                )
+                raise FileNotFoundError(f"Could not find examples directory: {examples}")
             working_directory = examples
-            if not (Path(examples) / LOG_FILE).exists():
-                if len(inputs) == 1:
-                    examples = [[e] for e in os.listdir(examples)]
-                else:
-                    raise FileNotFoundError(
-                        "Could not find log file (required for multiple inputs): "
-                        + LOG_FILE
-                    )
-            else:
+            if (Path(examples) / LOG_FILE).exists():
                 with open(Path(examples) / LOG_FILE) as logs:
                     examples = list(csv.reader(logs))
                     examples = [
                         examples[i][: len(inputs)] for i in range(1, len(examples))
                     ]  # remove header and unnecessary columns
 
+            elif len(inputs) == 1:
+                examples = [[e] for e in os.listdir(examples)]
+            else:
+                raise FileNotFoundError(
+                    f"Could not find log file (required for multiple inputs): {LOG_FILE}"
+                )
         else:
             raise ValueError(
                 "The parameter `examples` must either be a string directory or a list"
@@ -191,13 +187,13 @@ class Examples:
         self.inputs = inputs
         self.inputs_with_examples = inputs_with_examples
         self.outputs = outputs
-        self.fn = fn
         self.cache_examples = cache_examples
         self._api_mode = _api_mode
         self.preprocess = preprocess
         self.postprocess = postprocess
         self.batch = batch
 
+        self.fn = fn
         with utils.set_directory(working_directory):
             self.processed_examples = [
                 [
@@ -405,26 +401,25 @@ class Progress(Iterable):
         """
         Updates progress tracker with next item in iterable.
         """
-        if self._callback:
-            current_iterable = self.iterables[-1]
-            while (
-                not hasattr(current_iterable.iterable, "__next__")
-                and len(self.iterables) > 0
-            ):
-                current_iterable = self.iterables.pop()
-            self._callback(
-                event_id=self._event_id,
-                iterables=self.iterables,
-            )
-            assert current_iterable.index is not None, "Index not set."
-            current_iterable.index += 1
-            try:
-                return next(current_iterable.iterable)  # type: ignore
-            except StopIteration:
-                self.iterables.pop()
-                raise StopIteration
-        else:
+        if not self._callback:
             return self
+        current_iterable = self.iterables[-1]
+        while (
+            not hasattr(current_iterable.iterable, "__next__")
+            and len(self.iterables) > 0
+        ):
+            current_iterable = self.iterables.pop()
+        self._callback(
+            event_id=self._event_id,
+            iterables=self.iterables,
+        )
+        assert current_iterable.index is not None, "Index not set."
+        current_iterable.index += 1
+        try:
+            return next(current_iterable.iterable)  # type: ignore
+        except StopIteration:
+            self.iterables.pop()
+            raise StopIteration
 
     def __call__(
         self,
@@ -507,17 +502,16 @@ class Progress(Iterable):
         """
         Removes iterable with given _tqdm.
         """
-        if self._callback:
-            for i in range(len(self.iterables)):
-                if id(self.iterables[i]._tqdm) == id(_tqdm):
-                    self.iterables.pop(i)
-                    break
-            self._callback(
-                event_id=self._event_id,
-                iterables=self.iterables,
-            )
-        else:
+        if not self._callback:
             return
+        for i in range(len(self.iterables)):
+            if id(self.iterables[i]._tqdm) == id(_tqdm):
+                self.iterables.pop(i)
+                break
+        self._callback(
+            event_id=self._event_id,
+            iterables=self.iterables,
+        )
 
 
 def create_tracker(root_blocks, event_id, fn, track_tqdm):
@@ -544,10 +538,7 @@ def create_tracker(root_blocks, event_id, fn, track_tqdm):
         self.__init__orig__(iterable, desc, *args, **kwargs)
 
     def iter_tqdm(self):
-        if self._progress is not None:
-            return self._progress
-        else:
-            return self.__iter__orig__()
+        return self._progress if self._progress is not None else self.__iter__orig__()
 
     def update_tqdm(self, n=1):
         if self._progress is not None:
@@ -611,17 +602,18 @@ def special_args(
     """
     signature = inspect.signature(fn)
     positional_args = []
-    for i, param in enumerate(signature.parameters.values()):
+    for param in signature.parameters.values():
         if param.kind not in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD):
             break
-        positional_args.append(param)
+        else:
+            positional_args.append(param)
     progress_index = None
     event_data_index = None
     for i, param in enumerate(positional_args):
         if isinstance(param.default, Progress):
             progress_index = i
             if inputs is not None:
-                inputs.insert(i, param.default)
+                inputs.insert(progress_index, param.default)
         elif param.annotation == routes.Request:
             if inputs is not None:
                 inputs.insert(i, request)
@@ -630,7 +622,10 @@ def special_args(
         ):
             event_data_index = i
             if inputs is not None and event_data is not None:
-                inputs.insert(i, param.annotation(event_data.target, event_data._data))
+                inputs.insert(
+                    event_data_index,
+                    param.annotation(event_data.target, event_data._data),
+                )
         elif param.default is not param.empty:
             if inputs is not None and len(inputs) <= i:
                 inputs.insert(i, param.default)

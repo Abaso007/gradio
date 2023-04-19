@@ -5,7 +5,7 @@ css = "footer {display: none !important;} .gradio-container {min-height: 0px !im
 
 def load_set(progress=gr.Progress()):
     imgs = [None] * 24
-    for img in progress.tqdm(imgs, desc="Loading..."):
+    for _ in progress.tqdm(imgs, desc="Loading..."):
         time.sleep(0.1)
     return "Loaded"
 

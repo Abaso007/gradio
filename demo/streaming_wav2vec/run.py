@@ -7,7 +7,7 @@ p = pipeline("automatic-speech-recognition")
 def transcribe(audio, state=""):
     time.sleep(2)
     text = p(audio)["text"]
-    state += text + " "
+    state += f"{text} "
     return state, state
 
 demo = gr.Interface(

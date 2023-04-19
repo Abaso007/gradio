@@ -8,10 +8,7 @@ s2 = os.path.join(os.path.dirname(__file__), "files/s2.vtt")  # Subtitle
 
 
 def video_demo(video, subtitle=None):
-    if subtitle is None:
-        return video
-
-    return [video, subtitle.name]
+    return video if subtitle is None else [video, subtitle.name]
 
 
 demo = gr.Interface(

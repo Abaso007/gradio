@@ -71,8 +71,8 @@ def running_mean(x, N, total_length=-1):
 
 def retrieve_pip_installs(library_names, cummulated):
 
+    returned_values = {}
     if cummulated:
-        returned_values = {}
         for library_name in library_names:
             for i in datasets['pip'][library_name]:
                 if i['day'] in returned_values:
@@ -83,7 +83,6 @@ def retrieve_pip_installs(library_names, cummulated):
         library_names = ['Cumulated']
 
     else:
-        returned_values = {}
         for library_name in library_names:
             for i in datasets['pip'][library_name]:
                 if i['day'] in returned_values:
@@ -92,7 +91,7 @@ def retrieve_pip_installs(library_names, cummulated):
                     returned_values[i['day']] = {library_name: i['num_downloads']}
 
         for library_name in library_names:
-            for i in returned_values.keys():
+            for i in returned_values:
                 if library_name not in returned_values[i]:
                     returned_values[i][library_name] = None
 
@@ -128,7 +127,10 @@ def retrieve_stars(libraries, week_over_week):
     output['day'] = list(returned_values.keys())[::-1]
 
     # Trim down to a smaller number of points.
-    output = {k: [v for i, v in enumerate(value) if i % int(len(value) / 100) == 0] for k, value in output.items()}
+    output = {
+        k: [v for i, v in enumerate(value) if i % (len(value) // 100) == 0]
+        for k, value in output.items()
+    }
     return output
 
 
@@ -136,7 +138,7 @@ def retrieve_issues(libraries, exclude_org_members, week_over_week):
 
     returned_values = {}
     dataset_dict = datasets['issues']
-    range_id = 'range' if not exclude_org_members else 'range_non_org'
+    range_id = 'range_non_org' if exclude_org_members else 'range'
 
     for library_name in libraries:
         dataset = dataset_dict[library_name]
@@ -162,6 +164,7 @@ def retrieve_issues(libraries, exclude_org_members, week_over_week):
 
     # Trim down to a smaller number of points.
     output = {
-        k: [v for i, v in enumerate(value) if i % int(len(value) / 100) == 0] for k, value in output.items()
+        k: [v for i, v in enumerate(value) if i % (len(value) // 100) == 0]
+        for k, value in output.items()
     }
     return output

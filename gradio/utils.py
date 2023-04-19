@@ -74,11 +74,7 @@ def version_check():
         ]
         if StrictVersion(latest_pkg_version) > StrictVersion(current_pkg_version):
             print(
-                "IMPORTANT: You are using gradio version {}, "
-                "however version {} "
-                "is available, please upgrade.".format(
-                    current_pkg_version, latest_pkg_version
-                )
+                f"IMPORTANT: You are using gradio version {current_pkg_version}, however version {latest_pkg_version} is available, please upgrade."
             )
             print("--------")
     except json.decoder.JSONDecodeError:
@@ -105,12 +101,14 @@ def get_local_ip_address() -> str:
 
 
 def initiated_analytics(data: Dict[str, Any]) -> None:
-    data.update({"ip_address": get_local_ip_address()})
+    data["ip_address"] = get_local_ip_address()
 
     def initiated_analytics_thread(data: Dict[str, Any]) -> None:
         try:
             requests.post(
-                analytics_url + "gradio-initiated-analytics/", data=data, timeout=5
+                f"{analytics_url}gradio-initiated-analytics/",
+                data=data,
+                timeout=5,
             )
         except (requests.ConnectionError, requests.exceptions.ReadTimeout):
             pass  # do not push analytics if no network
@@ -119,12 +117,14 @@ def initiated_analytics(data: Dict[str, Any]) -> None:
 
 
 def launch_analytics(data: Dict[str, Any]) -> None:
-    data.update({"ip_address": get_local_ip_address()})
+    data["ip_address"] = get_local_ip_address()
 
     def launch_analytics_thread(data: Dict[str, Any]) -> None:
         try:
             requests.post(
-                analytics_url + "gradio-launched-analytics/", data=data, timeout=5
+                f"{analytics_url}gradio-launched-analytics/",
+                data=data,
+                timeout=5,
             )
         except (requests.ConnectionError, requests.exceptions.ReadTimeout):
             pass  # do not push analytics if no network
@@ -178,12 +178,14 @@ def launched_telemetry(blocks: gradio.Blocks, data: Dict[str, Any]) -> None:
     }
 
     data.update(additional_data)
-    data.update({"ip_address": get_local_ip_address()})
+    data["ip_address"] = get_local_ip_address()
 
     def launched_telemtry_thread(data: Dict[str, Any]) -> None:
         try:
             requests.post(
-                analytics_url + "gradio-launched-telemetry/", data=data, timeout=5
+                f"{analytics_url}gradio-launched-telemetry/",
+                data=data,
+                timeout=5,
             )
         except Exception:
             pass
@@ -192,12 +194,14 @@ def launched_telemetry(blocks: gradio.Blocks, data: Dict[str, Any]) -> None:
 
 
 def integration_analytics(data: Dict[str, Any]) -> None:
-    data.update({"ip_address": get_local_ip_address()})
+    data["ip_address"] = get_local_ip_address()
 
     def integration_analytics_thread(data: Dict[str, Any]) -> None:
         try:
             requests.post(
-                analytics_url + "gradio-integration-analytics/", data=data, timeout=5
+                f"{analytics_url}gradio-integration-analytics/",
+                data=data,
+                timeout=5,
             )
         except (requests.ConnectionError, requests.exceptions.ReadTimeout):
             pass  # do not push analytics if no network
@@ -215,9 +219,7 @@ def error_analytics(message: str) -> None:
 
     def error_analytics_thread(data: Dict[str, Any]) -> None:
         try:
-            requests.post(
-                analytics_url + "gradio-error-analytics/", data=data, timeout=5
-            )
+            requests.post(f"{analytics_url}gradio-error-analytics/", data=data, timeout=5)
         except (requests.ConnectionError, requests.exceptions.ReadTimeout):
             pass  # do not push analytics if no network
 
@@ -228,9 +230,7 @@ async def log_feature_analytics(feature: str) -> None:
     data = {"ip_address": get_local_ip_address(), "feature": feature}
     async with aiohttp.ClientSession() as session:
         try:
-            async with session.post(
-                analytics_url + "gradio-feature-analytics/", data=data
-            ):
+            async with session.post(f"{analytics_url}gradio-feature-analytics/", data=data):
                 pass
         except (aiohttp.ClientError):
             pass  # do not push analytics if no network
@@ -383,7 +383,7 @@ def assert_configs_are_equivalent_besides_ids(
 
 
 def format_ner_list(input_string: str, ner_groups: List[Dict[str, str | int]]):
-    if len(ner_groups) == 0:
+    if not ner_groups:
         return [(input_string, None)]
 
     output = []
@@ -392,8 +392,12 @@ def format_ner_list(input_string: str, ner_groups: List[Dict[str, str | int]]):
 
     for group in ner_groups:
         entity, start, end = group["entity_group"], group["start"], group["end"]
-        output.append((input_string[prev_end:start], None))
-        output.append((input_string[start:end], entity))
+        output.extend(
+            (
+                (input_string[prev_end:start], None),
+                (input_string[start:end], entity),
+            )
+        )
         prev_end = end
 
     output.append((input_string[end:], None))
@@ -413,10 +417,7 @@ def delete_none(_dict: Dict, skip_value: bool = False) -> Dict:
 
 
 def resolve_singleton(_list: List[Any] | Any) -> Any:
-    if len(_list) == 1:
-        return _list[0]
-    else:
-        return _list
+    return _list[0] if len(_list) == 1 else _list
 
 
 def component_or_layout_class(cls_name: str) -> Type[Component] | Type[BlockContext]:
@@ -612,8 +613,7 @@ class AsyncRequest:
         Returns:
             Request
         """
-        request = httpx.Request(method, url, **kwargs)
-        return request
+        return httpx.Request(method, url, **kwargs)
 
     def _validate_response_data(self, response):
         """
@@ -665,12 +665,11 @@ class AsyncRequest:
         Returns:
             ResponseJson: Validated Json object.
         """
-        validated_data = None
-
-        if self._validation_function:
-            validated_data = self._validation_function(response)
-
-        return validated_data
+        return (
+            self._validation_function(response)
+            if self._validation_function
+            else None
+        )
 
     def is_valid(self, raise_exceptions: bool = False) -> bool:
         """
@@ -736,7 +735,7 @@ def sanitize_value_for_csv(value: str | Number) -> str | Number:
     if any(value.startswith(prefix) for prefix in unsafe_prefixes) or any(
         sequence in value for sequence in unsafe_sequences
     ):
-        value = "'" + value
+        value = f"'{value}"
     return value
 
 
@@ -749,10 +748,9 @@ def sanitize_list_for_csv(values: List[Any]) -> List[Any]:
     for value in values:
         if isinstance(value, list):
             sanitized_value = [sanitize_value_for_csv(v) for v in value]
-            sanitized_values.append(sanitized_value)
         else:
             sanitized_value = sanitize_value_for_csv(value)
-            sanitized_values.append(sanitized_value)
+        sanitized_values.append(sanitized_value)
     return sanitized_values
 
 
@@ -761,13 +759,12 @@ def append_unique_suffix(name: str, list_of_names: List[str]):
     set_of_names: set[str] = set(list_of_names)  # for O(1) lookup
     if name not in set_of_names:
         return name
-    else:
-        suffix_counter = 1
-        new_name = name + f"_{suffix_counter}"
-        while new_name in set_of_names:
-            suffix_counter += 1
-            new_name = name + f"_{suffix_counter}"
-        return new_name
+    suffix_counter = 1
+    new_name = f"{name}_{suffix_counter}"
+    while new_name in set_of_names:
+        suffix_counter += 1
+        new_name = f"{name}_{suffix_counter}"
+    return new_name
 
 
 def validate_url(possible_url: str) -> bool:
@@ -788,8 +785,7 @@ def is_update(val):
 def get_continuous_fn(fn: Callable, every: float) -> Callable:
     def continuous_fn(*args):
         while True:
-            output = fn(*args)
-            yield output
+            yield fn(*args)
             time.sleep(every)
 
     return continuous_fn
@@ -828,7 +824,7 @@ def get_cancel_function(
             ]
 
     async def cancel(session_hash: str) -> None:
-        task_ids = set([f"{session_hash}_{fn}" for fn in fn_to_comp])
+        task_ids = {f"{session_hash}_{fn}" for fn in fn_to_comp}
         await cancel_tasks(task_ids)
 
     return (
@@ -899,7 +895,7 @@ def tex2svg(formula, *args):
     DPI = 300
     plt.rc("mathtext", fontset="cm")
     fig = plt.figure(figsize=(0.01, 0.01))
-    fig.text(0, 0, r"${}$".format(formula), fontsize=FONTSIZE)
+    fig.text(0, 0, f"${formula}$", fontsize=FONTSIZE)
     output = BytesIO()
     fig.savefig(
         output,
@@ -916,9 +912,8 @@ def tex2svg(formula, *args):
     svg_code = xml_code[svg_start:]
     svg_code = re.sub(r"<metadata>.*<\/metadata>", "", svg_code, flags=re.DOTALL)
     svg_code = re.sub(r' width="[^"]+"', "", svg_code)
-    height_match = re.search(r'height="([\d.]+)pt"', svg_code)
-    if height_match:
-        height = float(height_match.group(1))
+    if height_match := re.search(r'height="([\d.]+)pt"', svg_code):
+        height = float(height_match[1])
         new_height = height / FONTSIZE  # conversion from pt to em
         svg_code = re.sub(r'height="[\d.]+pt"', f'height="{new_height}em"', svg_code)
     copy_code = f"<span style='font-size: 0px'>{formula}</span>"
@@ -927,10 +922,7 @@ def tex2svg(formula, *args):
 
 def abspath(path: str | Path) -> Path:
     """Returns absolute path of a str or Path path, but does not resolve symlinks."""
-    if Path(path).is_symlink():
-        return Path.cwd() / path
-    else:
-        return Path(path).resolve()
+    return Path.cwd() / path if Path(path).is_symlink() else Path(path).resolve()
 
 
 def get_serializer_name(block: Block) -> str | None:

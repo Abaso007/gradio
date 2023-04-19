@@ -245,7 +245,7 @@ def download_tmp_copy_of_file(
 ) -> tempfile._TemporaryFileWrapper:
     if dir is not None:
         os.makedirs(dir, exist_ok=True)
-    headers = {"Authorization": "Bearer " + hf_token} if hf_token else {}
+    headers = {"Authorization": f"Bearer {hf_token}"} if hf_token else {}
     prefix = Path(url_path).stem
     suffix = Path(url_path).suffix
     file_obj = tempfile.NamedTemporaryFile(
@@ -343,9 +343,7 @@ def strip_invalid_filename_characters(filename: str, max_bytes: int = 200) -> st
     filename = "".join([char for char in filename if char.isalnum() or char in "._- "])
     filename_len = len(filename.encode())
     if filename_len > max_bytes:
-        while filename_len > max_bytes:
-            if len(filename) == 0:
-                break
+        while filename_len > max_bytes and filename:
             filename = filename[:-1]
             filename_len = len(filename.encode())
     return filename
@@ -373,7 +371,7 @@ def decode_base64_to_file(
         filename = Path(file_path).name
         prefix = filename
         if "." in filename:
-            prefix = filename[0 : filename.index(".")]
+            prefix = filename[:filename.index(".")]
             extension = filename[filename.index(".") + 1 :]
 
     if prefix is not None:
@@ -383,10 +381,7 @@ def decode_base64_to_file(
         file_obj = tempfile.NamedTemporaryFile(delete=False, prefix=prefix, dir=dir)
     else:
         file_obj = tempfile.NamedTemporaryFile(
-            delete=False,
-            prefix=prefix,
-            suffix="." + extension,
-            dir=dir,
+            delete=False, prefix=prefix, suffix=f".{extension}", dir=dir
         )
     file_obj.write(data)
     file_obj.flush()

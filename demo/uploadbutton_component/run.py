@@ -1,8 +1,7 @@
 import gradio as gr
 
 def upload_file(files):
-    file_paths = [file.name for file in files]
-    return file_paths
+    return [file.name for file in files]
 
 css = "footer {display: none !important;} .gradio-container {min-height: 0px !important;}"
 with gr.Blocks(css=css) as demo:

@@ -1,8 +1,7 @@
 import gradio as gr
 
 def upload_file(files):
-    file_paths = [file.name for file in files]
-    return file_paths
+    return [file.name for file in files]
 
 with gr.Blocks() as demo:
     file_output = gr.File()

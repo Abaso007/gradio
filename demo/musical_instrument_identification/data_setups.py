@@ -27,10 +27,7 @@ def find_classes(directory: str):
     return classes, class_to_idx
     
 def resample(wav, sample_rate, new_sample_rate):
-    if wav.shape[0] >= 2:
-        wav = torch.mean(wav, dim=0)
-    else:
-        wav = wav.squeeze(0)
+    wav = torch.mean(wav, dim=0) if wav.shape[0] >= 2 else wav.squeeze(0)
     if sample_rate > new_sample_rate:
         resampler = Resample(sample_rate, new_sample_rate)
         wav = resampler(wav)

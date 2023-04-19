@@ -24,9 +24,7 @@ def io_components():
 
     while classes_to_check:
         subclass = classes_to_check.pop()
-        children = subclass.__subclasses__()
-
-        if children:
+        if children := subclass.__subclasses__():
             classes_to_check.extend(children)
         if "value" in inspect.signature(subclass).parameters:
             subclasses.append(subclass)

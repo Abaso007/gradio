@@ -12,7 +12,7 @@ TEST_IMAGE_B = "img/b.jpg"
 def alert_change(component, value):
     print(f"Detected {component} change, {type(value)}")
 
-    if type(value) == list or type(value) == str:
+    if type(value) in [list, str]:
         print(value)
 
 
@@ -123,9 +123,7 @@ with gr.Blocks() as demo:
                 file1_interactive = gr.State(value=False)
 
         def change_file(index):
-            if index == 0:
-                return [TEST_IMAGE_A]
-            elif index == 1:
+            if index in [0, 1]:
                 return [TEST_IMAGE_A]
             elif index == 2:
                 return [TEST_IMAGE_A, TEST_IMAGE_B]

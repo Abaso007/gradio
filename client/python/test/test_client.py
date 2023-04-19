@@ -109,17 +109,15 @@ class TestPredictionsFromSpaces:
 
         assert job.outputs() == [str(i) for i in range(3)]
 
-        outputs = []
-        for o in client.submit(3, fn_index=0):
-            outputs.append(o)
+        outputs = list(client.submit(3, fn_index=0))
         assert outputs == [str(i) for i in range(3)]
 
     @pytest.mark.flaky
     def test_break_in_loop_if_error(self):
         calculator = Client(src="gradio/calculator")
         job = calculator.submit("foo", "add", 4, fn_index=0)
-        output = [o for o in job]
-        assert output == []
+        output = list(job)
+        assert not output
 
     @pytest.mark.flaky
     def test_timeout(self):
@@ -428,7 +426,7 @@ class TestStatusUpdates:
 class TestAPIInfo:
     @pytest.mark.parametrize("trailing_char", ["/", ""])
     def test_test_endpoint_src(self, trailing_char):
-        src = "https://gradio-calculator.hf.space" + trailing_char
+        src = f"https://gradio-calculator.hf.space{trailing_char}"
         client = Client(src=src)
         assert client.endpoints[0].root_url == "https://gradio-calculator.hf.space/"
 
@@ -544,7 +542,8 @@ class TestAPIInfo:
     def test_serializable_in_mapping(self):
         client = Client("freddyaboulton/calculator")
         assert all(
-            [c.__class__ == SimpleSerializable for c in client.endpoints[0].serializers]
+            c.__class__ == SimpleSerializable
+            for c in client.endpoints[0].serializers
         )
 
     @pytest.mark.flaky

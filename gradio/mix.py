@@ -50,9 +50,7 @@ class Parallel(gradio.Interface):
                     combined_list.append(return_value)
                 else:
                     combined_list.extend(return_value)
-            if len(outputs) == 1:
-                return combined_list[0]
-            return combined_list
+            return combined_list[0] if len(outputs) == 1 else combined_list
 
         parallel_fn.__name__ = " | ".join([io.__name__ for io in interfaces])
 
@@ -107,9 +105,7 @@ class Series(gradio.Interface):
                         )
                     ]
 
-            if len(interface.output_components) == 1:  # type: ignore
-                return data[0]
-            return data
+            return data[0] if len(interface.output_components) == 1 else data
 
         for interface in interfaces:
             if not (isinstance(interface, gradio.Interface)):

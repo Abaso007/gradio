@@ -30,7 +30,7 @@ with open(VERSION_TXT) as f:
 version = version.strip()
 
 
-gradio_wheel_url = args.url + f"gradio-{version}-py3-none-any.whl"
+gradio_wheel_url = f"{args.url}gradio-{version}-py3-none-any.whl"
 
 index.build(BUILD_DIR, jinja_env, latest_gradio_stable)
 guides.build(BUILD_DIR, jinja_env, latest_gradio_stable)

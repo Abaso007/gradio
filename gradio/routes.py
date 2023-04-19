@@ -118,10 +118,11 @@ class App(FastAPI):
     def configure_app(self, blocks: gradio.Blocks) -> None:
         auth = blocks.auth
         if auth is not None:
-            if not callable(auth):
-                self.auth = {account[0]: account[1] for account in auth}
-            else:
-                self.auth = auth
+            self.auth = (
+                auth
+                if callable(auth)
+                else {account[0]: account[1] for account in auth}
+            )
         else:
             self.auth = None
 
@@ -433,11 +434,11 @@ class App(FastAPI):
         @app.post("/api/{api_name}", dependencies=[Depends(login_check)])
         @app.post("/api/{api_name}/", dependencies=[Depends(login_check)])
         async def predict(
-            api_name: str,
-            body: PredictBody,
-            request: fastapi.Request,
-            username: str = Depends(get_current_user),
-        ):
+                api_name: str,
+                body: PredictBody,
+                request: fastapi.Request,
+                username: str = Depends(get_current_user),
+            ):
             fn_index_inferred = None
             if body.fn_index is None:
                 for i, fn in enumerate(app.get_blocks().dependencies):
@@ -453,14 +454,16 @@ class App(FastAPI):
                     )
             else:
                 fn_index_inferred = body.fn_index
-            if not app.get_blocks().api_open and app.get_blocks().queue_enabled_for_fn(
-                fn_index_inferred
+            if (
+                not app.get_blocks().api_open
+                and app.get_blocks().queue_enabled_for_fn(fn_index_inferred)
+                and f"Bearer {app.queue_token}"
+                != request.headers.get("Authorization")
             ):
-                if f"Bearer {app.queue_token}" != request.headers.get("Authorization"):
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Not authorized to skip the queue",
-                    )
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authorized to skip the queue",
+                )
 
             # If this fn_index cancels jobs, then the only input we need is the
             # current session hash
@@ -485,9 +488,9 @@ class App(FastAPI):
 
         @app.websocket("/queue/join")
         async def join_queue(
-            websocket: WebSocket,
-            token: Optional[str] = Depends(ws_login_check),
-        ):
+                websocket: WebSocket,
+                token: Optional[str] = Depends(ws_login_check),
+            ):
             blocks = app.get_blocks()
             if app.auth is not None and token is None:
                 await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -522,7 +525,7 @@ class App(FastAPI):
             # Continuous events are not put in the queue  so that they do not
             # occupy the queue's resource as they are expected to run forever
             if blocks.dependencies[event.fn_index].get("every", 0):
-                await cancel_tasks(set([f"{event.session_hash}_{event.fn_index}"]))
+                await cancel_tasks({f"{event.session_hash}_{event.fn_index}"})
                 await blocks._queue.reset_iterators(event.session_hash, event.fn_index)
                 task = run_coro_in_background(
                     blocks._queue.process_events, [event], False
@@ -595,15 +598,17 @@ class App(FastAPI):
 def safe_join(directory: str, path: str) -> str | None:
     """Safely path to a base directory to avoid escaping the base directory.
     Borrowed from: werkzeug.security.safe_join"""
-    _os_alt_seps: List[str] = list(
-        sep for sep in [os.path.sep, os.path.altsep] if sep is not None and sep != "/"
-    )
+    _os_alt_seps: List[str] = [
+        sep
+        for sep in [os.path.sep, os.path.altsep]
+        if sep is not None and sep != "/"
+    ]
 
-    if path != "":
-        filename = posixpath.normpath(path)
-    else:
+    if not path:
         return directory
 
+    else:
+        filename = posixpath.normpath(path)
     if (
         any(sep in filename for sep in _os_alt_seps)
         or os.path.isabs(filename)
@@ -620,9 +625,11 @@ def get_types(cls_set: List[Type]):
     for cls in cls_set:
         doc = inspect.getdoc(cls) or ""
         doc_lines = doc.split("\n")
-        for line in doc_lines:
-            if "value (" in line:
-                types.append(line.split("value (")[1].split(")")[0])
+        types.extend(
+            line.split("value (")[1].split(")")[0]
+            for line in doc_lines
+            if "value (" in line
+        )
         docset.append(doc_lines[1].split(":")[-1])
     return docset, types
 
@@ -666,10 +673,10 @@ class Obj:
     def __contains__(self, item) -> bool:
         if item in self.__dict__:
             return True
-        for value in self.__dict__.values():
-            if isinstance(value, Obj) and item in value:
-                return True
-        return False
+        return any(
+            isinstance(value, Obj) and item in value
+            for value in self.__dict__.values()
+        )
 
     def keys(self):
         return self.__dict__.keys()
@@ -721,20 +728,16 @@ class Request:
         self.kwargs: Dict = kwargs
 
     def dict_to_obj(self, d):
-        if isinstance(d, dict):
-            return json.loads(json.dumps(d), object_hook=Obj)
-        else:
-            return d
+        return json.loads(json.dumps(d), object_hook=Obj) if isinstance(d, dict) else d
 
     def __getattr__(self, name):
         if self.request:
             return self.dict_to_obj(getattr(self.request, name))
-        else:
-            try:
-                obj = self.kwargs[name]
-            except KeyError:
-                raise AttributeError(f"'Request' object has no attribute '{name}'")
-            return self.dict_to_obj(obj)
+        try:
+            obj = self.kwargs[name]
+        except KeyError:
+            raise AttributeError(f"'Request' object has no attribute '{name}'")
+        return self.dict_to_obj(obj)
 
 
 @document()

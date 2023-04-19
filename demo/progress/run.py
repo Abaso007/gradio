@@ -25,7 +25,7 @@ with gr.Blocks() as demo:
     # track list
     def load_set(text, text2, progress=gr.Progress()):
         imgs = [None] * 24
-        for img in progress.tqdm(imgs, desc="Loading from list"):
+        for _ in progress.tqdm(imgs, desc="Loading from list"):
             time.sleep(0.1)
         return "done"
     load_set_btn.click(load_set, [text, textb], text2)
@@ -35,7 +35,7 @@ with gr.Blocks() as demo:
         imgs = [[None] * 8] * 3
         for img_set in progress.tqdm(imgs, desc="Nested list"):
             time.sleep(2)
-            for img in progress.tqdm(img_set, desc="inner list"):
+            for _ in progress.tqdm(img_set, desc="inner list"):
                 time.sleep(0.1)
         return "done"
     load_nested_set_btn.click(load_nested_set, [text, textb], text2)
@@ -43,9 +43,10 @@ with gr.Blocks() as demo:
     # track iterable of unknown length
     def load_random(data, progress=gr.Progress()):
         def yielder():
-            for i in range(0, random.randint(15, 20)):
+            for i in range(random.randint(15, 20)):
                 time.sleep(0.1)
                 yield None
+
         for img in progress.tqdm(yielder()):
             pass
         return "done"
@@ -79,14 +80,14 @@ with gr.Blocks() as demo:
     do_all_btn.click(do_all, {text, textb}, text2)
 
     def track_tqdm(data, progress=gr.Progress(track_tqdm=True)):
-        for i in tqdm.tqdm(range(5), desc="outer"):
-            for j in tqdm.tqdm(range(4), desc="inner"):
+        for _ in tqdm.tqdm(range(5), desc="outer"):
+            for _ in tqdm.tqdm(range(4), desc="inner"):
                 time.sleep(1)
         return "done"
     track_tqdm_btn.click(track_tqdm, {text, textb}, text2)
 
     def bind_internal_tqdm(data, progress=gr.Progress(track_tqdm=True)):
-        outdir = "__tmp/" + str(uuid4())
+        outdir = f"__tmp/{str(uuid4())}"
         load_dataset("beans", split="train", cache_dir=outdir)
         shutil.rmtree(outdir)
         return "done"

@@ -12,7 +12,7 @@ def fake_gan(desc):
     if desc == "error":
         raise ValueError("error")
     time.sleep(9)
-    image = random.choice(
+    return random.choice(
         [
             "files/cheetah1.jpg",
             "files/elephant.jpg",
@@ -20,7 +20,6 @@ def fake_gan(desc):
             "files/zebra.jpg",
         ]
     )
-    return image
 
 
 demo = gr.Interface(

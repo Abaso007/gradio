@@ -113,8 +113,7 @@ class Interface(Blocks):
         """
         interface_info = load_from_pipeline(pipeline)
         kwargs = dict(interface_info, **kwargs)
-        interface = cls(**kwargs)
-        return interface
+        return cls(**kwargs)
 
     def __init__(
         self,
@@ -214,7 +213,7 @@ class Interface(Blocks):
             idx for idx, o in enumerate(outputs) if o == "state" or isinstance(o, State)
         ]
 
-        if len(state_input_indexes) == 0 and len(state_output_indexes) == 0:
+        if not state_input_indexes and not state_output_indexes:
             pass
         elif len(state_input_indexes) != 1 or len(state_output_indexes) != 1:
             raise ValueError(
@@ -349,9 +348,9 @@ class Interface(Blocks):
             raise ValueError(
                 "flagging_options must be a list of strings or list of (string, string) tuples."
             )
-        elif all([isinstance(x, str) for x in flagging_options]):
+        elif all(isinstance(x, str) for x in flagging_options):
             self.flagging_options = [(f"Flag as {x}", x) for x in flagging_options]
-        elif all([isinstance(x, tuple) for x in flagging_options]):
+        elif all(isinstance(x, tuple) for x in flagging_options):
             self.flagging_options = flagging_options
         else:
             raise ValueError(
@@ -385,7 +384,7 @@ class Interface(Blocks):
                 if len(self.output_components) == 1:
                     component.label = "output"
                 else:
-                    component.label = "output " + str(i)
+                    component.label = f"output {str(i)}"
 
         if self.allow_flagging != "never":
             if (
@@ -494,8 +493,10 @@ class Interface(Blocks):
                 interpret_component_column = Column(visible=False)
                 interpretation_set = []
                 with interpret_component_column:
-                    for component in self.input_components:
-                        interpretation_set.append(Interpretation(component))
+                    interpretation_set.extend(
+                        Interpretation(component)
+                        for component in self.input_components
+                    )
             with Row():
                 if self.interface_type in [
                     InterfaceTypes.STANDARD,
@@ -622,7 +623,7 @@ class Interface(Blocks):
                         for output in self.fn(*args):
                             if len(self.output_components) == 1 and not self.batch:
                                 output = [output]
-                            output = [o for o in output]
+                            output = list(output)
                             yield output + [
                                 Button.update(visible=False),
                                 Button.update(visible=True),
@@ -714,52 +715,53 @@ class Interface(Blocks):
             )
 
     def attach_flagging_events(self, flag_btns: List[Button] | None, clear_btn: Button):
-        if flag_btns:
-            if self.interface_type in [
-                InterfaceTypes.STANDARD,
-                InterfaceTypes.OUTPUT_ONLY,
-                InterfaceTypes.UNIFIED,
-            ]:
-                if self.allow_flagging == "auto":
-                    flag_method = FlagMethod(
-                        self.flagging_callback, "", "", visual_feedback=False
-                    )
-                    flag_btns[0].click(  # flag_btns[0] is just the "Submit" button
-                        flag_method,
-                        inputs=self.input_components,
-                        outputs=None,
-                        preprocess=False,
-                        queue=False,
-                    )
-                    return
+        if not flag_btns:
+            return
+        if self.interface_type in [
+            InterfaceTypes.STANDARD,
+            InterfaceTypes.OUTPUT_ONLY,
+            InterfaceTypes.UNIFIED,
+        ]:
+            if self.allow_flagging == "auto":
+                flag_method = FlagMethod(
+                    self.flagging_callback, "", "", visual_feedback=False
+                )
+                flag_btns[0].click(  # flag_btns[0] is just the "Submit" button
+                    flag_method,
+                    inputs=self.input_components,
+                    outputs=None,
+                    preprocess=False,
+                    queue=False,
+                )
+                return
 
-                if self.interface_type == InterfaceTypes.UNIFIED:
-                    flag_components = self.input_components
-                else:
-                    flag_components = self.input_components + self.output_components
+            if self.interface_type == InterfaceTypes.UNIFIED:
+                flag_components = self.input_components
+            else:
+                flag_components = self.input_components + self.output_components
 
-                for flag_btn, (label, value) in zip(flag_btns, self.flagging_options):
-                    assert isinstance(value, str)
-                    flag_method = FlagMethod(self.flagging_callback, label, value)
-                    flag_btn.click(
-                        lambda: Button.update(value="Saving...", interactive=False),
-                        None,
-                        flag_btn,
-                        queue=False,
-                    )
-                    flag_btn.click(
-                        flag_method,
-                        inputs=flag_components,
-                        outputs=flag_btn,
-                        preprocess=False,
-                        queue=False,
-                    )
-                    clear_btn.click(
-                        flag_method.reset,
-                        None,
-                        flag_btn,
-                        queue=False,
-                    )
+            for flag_btn, (label, value) in zip(flag_btns, self.flagging_options):
+                assert isinstance(value, str)
+                flag_method = FlagMethod(self.flagging_callback, label, value)
+                flag_btn.click(
+                    lambda: Button.update(value="Saving...", interactive=False),
+                    None,
+                    flag_btn,
+                    queue=False,
+                )
+                flag_btn.click(
+                    flag_method,
+                    inputs=flag_components,
+                    outputs=flag_btn,
+                    preprocess=False,
+                    queue=False,
+                )
+                clear_btn.click(
+                    flag_method.reset,
+                    None,
+                    flag_btn,
+                    queue=False,
+                )
 
     def render_examples(self):
         if self.examples:
@@ -788,10 +790,10 @@ class Interface(Blocks):
         repr += "\n" + "-" * len(repr)
         repr += "\ninputs:"
         for component in self.input_components:
-            repr += "\n|-{}".format(str(component))
+            repr += f"\n|-{str(component)}"
         repr += "\noutputs:"
         for component in self.output_components:
-            repr += "\n|-{}".format(str(component))
+            repr += f"\n|-{str(component)}"
         return repr
 
     async def interpret_func(self, *args):
@@ -850,7 +852,7 @@ class TabbedInterface(Blocks):
             css=css,
         )
         if tab_names is None:
-            tab_names = ["Tab {}".format(i) for i in range(len(interface_list))]
+            tab_names = [f"Tab {i}" for i in range(len(interface_list))]
         with self:
             if title:
                 Markdown(

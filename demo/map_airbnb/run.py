@@ -11,7 +11,7 @@ def filter_map(min_price, max_price, boroughs):
           (df['price'] > min_price) & (df['price'] < max_price)]
     names = filtered_df["name"].tolist()
     prices = filtered_df["price"].tolist()
-    text_list = [(names[i], prices[i]) for i in range(0, len(names))]
+    text_list = [(names[i], prices[i]) for i in range(len(names))]
     fig = go.Figure(go.Scattermapbox(
             customdata=text_list,
             lat=filtered_df['latitude'].tolist(),

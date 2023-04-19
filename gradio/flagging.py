@@ -53,7 +53,7 @@ def _get_dataset_features_info(is_new, components):
                 "_type": "Value",
             }
             if isinstance(component, tuple(file_preview_types)):
-                headers.append(component.label + " file")
+                headers.append(f"{component.label} file")
                 for _component, _type in file_preview_types.items():
                     if isinstance(component, _component):
                         infos["flagged"]["features"][
@@ -156,7 +156,7 @@ class SimpleCSVLogger(FlaggingCallback):
             writer.writerow(utils.sanitize_list_for_csv(csv_data))
 
         with open(log_filepath, "r") as csvfile:
-            line_count = len([None for row in csv.reader(csvfile)]) - 1
+            line_count = len([None for _ in csv.reader(csvfile)]) - 1
         return line_count
 
 
@@ -219,10 +219,13 @@ class CSVLogger(FlaggingCallback):
                     if sample is not None
                     else ""
                 )
-        csv_data.append(flag_option)
-        csv_data.append(username if username is not None else "")
-        csv_data.append(str(datetime.datetime.now()))
-
+        csv_data.extend(
+            (
+                flag_option,
+                username if username is not None else "",
+                str(datetime.datetime.now()),
+            )
+        )
         with open(log_filepath, "a", newline="", encoding="utf-8") as csvfile:
             writer = csv.writer(csvfile)
             if is_new:
@@ -230,7 +233,7 @@ class CSVLogger(FlaggingCallback):
             writer.writerow(utils.sanitize_list_for_csv(csv_data))
 
         with open(log_filepath, "r", encoding="utf-8") as csvfile:
-            line_count = len([None for row in csv.reader(csvfile)]) - 1
+            line_count = len([None for _ in csv.reader(csvfile)]) - 1
         return line_count
 
 
@@ -276,7 +279,7 @@ class HuggingFaceDatasetSaver(FlaggingCallback):
         """
         try:
             import huggingface_hub
-        except (ImportError, ModuleNotFoundError):
+        except ImportError:
             raise ImportError(
                 "Package `huggingface_hub` not found is needed "
                 "for HuggingFaceDatasetSaver. Try 'pip install huggingface_hub'."
@@ -348,9 +351,7 @@ class HuggingFaceDatasetSaver(FlaggingCallback):
                 filepath = component.deserialize(sample, save_dir, None)
                 csv_data.append(filepath)
                 if isinstance(component, tuple(file_preview_types)):
-                    csv_data.append(
-                        "{}/resolve/main/{}".format(self.path_to_dataset_repo, filepath)
-                    )
+                    csv_data.append(f"{self.path_to_dataset_repo}/resolve/main/{filepath}")
             csv_data.append(flag_option)
             writer.writerow(utils.sanitize_list_for_csv(csv_data))
 
@@ -358,9 +359,9 @@ class HuggingFaceDatasetSaver(FlaggingCallback):
             json.dump(infos, open(self.infos_file, "w"))
 
         with open(self.log_file, "r", encoding="utf-8") as csvfile:
-            line_count = len([None for row in csv.reader(csvfile)]) - 1
+            line_count = len([None for _ in csv.reader(csvfile)]) - 1
 
-        self.repo.push_to_hub(commit_message="Flagged sample #{}".format(line_count))
+        self.repo.push_to_hub(commit_message=f"Flagged sample #{line_count}")
 
         return line_count
 
@@ -416,7 +417,7 @@ class HuggingFaceDatasetJSONSaver(FlaggingCallback):
         """
         try:
             import huggingface_hub
-        except (ImportError, ModuleNotFoundError):
+        except ImportError:
             raise ImportError(
                 "Package `huggingface_hub` not found is needed "
                 "for HuggingFaceDatasetJSONSaver. Try 'pip install huggingface_hub'."
@@ -500,9 +501,7 @@ class HuggingFaceDatasetJSONSaver(FlaggingCallback):
                 headers.append(component.label or "" + " file")
 
                 csv_data.append(
-                    "{}/resolve/main/{}/{}".format(
-                        self.path_to_dataset_repo, unique_name, filepath
-                    )
+                    f"{self.path_to_dataset_repo}/resolve/main/{unique_name}/{filepath}"
                     if filepath is not None
                     else None
                 )
@@ -512,15 +511,13 @@ class HuggingFaceDatasetJSONSaver(FlaggingCallback):
         csv_data.append(flag_option)
 
         # Creates metadata dict from row data and dumps it
-        metadata_dict = {
-            header: _csv_data for header, _csv_data in zip(headers, csv_data)
-        }
+        metadata_dict = dict(zip(headers, csv_data))
         self.dump_json(metadata_dict, Path(folder_name) / "metadata.jsonl")
 
         if is_new:
             json.dump(infos, open(self.infos_file, "w"))
 
-        self.repo.push_to_hub(commit_message="Flagged sample {}".format(unique_name))
+        self.repo.push_to_hub(commit_message=f"Flagged sample {unique_name}")
         return unique_name
 
     def get_unique_name(self):
@@ -555,7 +552,7 @@ class FlagMethod:
         try:
             self.flagging_callback.flag(list(flag_data), flag_option=self.value)
         except Exception as e:
-            print("Error while flagging: {}".format(e))
+            print(f"Error while flagging: {e}")
             if self.visual_feedback:
                 return "Error!"
         if not self.visual_feedback:

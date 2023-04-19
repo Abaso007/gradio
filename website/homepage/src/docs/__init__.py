@@ -67,7 +67,7 @@ def add_supported_events():
                 continue
             for prop in dir(listener):
                 if prop not in event_listener_props:
-                    component["events-list"].append(prop + "()")
+                    component["events-list"].append(f"{prop}()")
         if component["events-list"]:
             component["events"] = ", ".join(component["events-list"])
 

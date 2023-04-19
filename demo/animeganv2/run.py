@@ -14,11 +14,11 @@ face2paint = torch.hub.load(
 )
 
 def inference(img, ver):
-    if ver == 'version 2 (🔺 robustness,🔻 stylization)':
-        out = face2paint(model2, img)
-    else:
-        out = face2paint(model1, img)
-    return out
+    return (
+        face2paint(model2, img)
+        if ver == 'version 2 (🔺 robustness,🔻 stylization)'
+        else face2paint(model1, img)
+    )
 
 title = "AnimeGANv2"
 description = "Gradio Demo for AnimeGanv2 Face Portrait. To use it, simply upload your image, or click one of the examples to load them. Read more at the links below. Please use a cropped portrait picture for best results similar to the examples below."

@@ -148,11 +148,7 @@ class ThemeClass:
             repo_name: string of the form <author>/<theme-name>@<semantic-version-expression>.  If a semantic version expression is omitted, the latest version will be fetched.
             hf_token: HuggingFace Token. Only needed to download private themes.
         """
-        if "@" not in repo_name:
-            name, version = repo_name, None
-        else:
-            name, version = repo_name.split("@")
-
+        name, version = repo_name.split("@") if "@" in repo_name else (repo_name, None)
         api = huggingface_hub.HfApi(token=hf_token)
 
         try:
@@ -241,10 +237,7 @@ class ThemeClass:
 
         # If no version, set the version to next patch release
         if not version:
-            if space_exists:
-                version = self._get_next_version(space_info)
-            else:
-                version = "0.0.1"
+            version = self._get_next_version(space_info) if space_exists else "0.0.1"
         else:
             _ = semver.Version(version)
 
@@ -373,7 +366,7 @@ class Base(ThemeClass):
                 raise ValueError(f"Color shortcut {shortcut} not found.")
             elif mode == "size":
                 for size in sizes.Size.all:
-                    if size.name == prefix + "_" + shortcut:
+                    if size.name == f"{prefix}_{shortcut}":
                         return size
                 raise ValueError(f"Size shortcut {shortcut} not found.")
 

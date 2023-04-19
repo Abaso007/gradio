@@ -6,10 +6,8 @@ import time
 def fake_diffusion(steps):
     for _ in range(steps):
         time.sleep(1)
-        image = np.random.random((600, 600, 3))
-        yield image
-    image = "https://gradio-builds.s3.amazonaws.com/diffusion_image/cute_dog.jpg"
-    yield image
+        yield np.random.random((600, 600, 3))
+    yield "https://gradio-builds.s3.amazonaws.com/diffusion_image/cute_dog.jpg"
 
 
 demo = gr.Interface(fake_diffusion, inputs=gr.Slider(1, 10, 3), outputs="image")

@@ -2,17 +2,21 @@ import gradio as gr
 import requests
 import pandas as pd
 from huggingface_hub.hf_api import SpaceInfo
-path = f"https://huggingface.co/api/spaces"
+path = "https://huggingface.co/api/spaces"
 
 
 def get_blocks_party_spaces():
     r = requests.get(path)
     d = r.json()
     spaces = [SpaceInfo(**x) for x in d]
-    blocks_spaces = {}
-    for i in range(0,len(spaces)):
-        if spaces[i].id.split('/')[0] == 'Gradio-Blocks' and hasattr(spaces[i], 'likes') and spaces[i].id != 'Gradio-Blocks/Leaderboard' and spaces[i].id != 'Gradio-Blocks/README':
-            blocks_spaces[spaces[i].id]=spaces[i].likes
+    blocks_spaces = {
+        space.id: space.likes
+        for space in spaces
+        if space.id.split('/')[0] == 'Gradio-Blocks'
+        and hasattr(space, 'likes')
+        and space.id != 'Gradio-Blocks/Leaderboard'
+        and space.id != 'Gradio-Blocks/README'
+    }
     df = pd.DataFrame(
     [{"Spaces_Name": Spaces, "likes": likes} for Spaces,likes in blocks_spaces.items()])
     df = df.sort_values(by=['likes'],ascending=False)

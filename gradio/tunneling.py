@@ -28,7 +28,7 @@ class Tunnel:
 
         # Check if the file exist
         binary_name = f"frpc_{platform.system().lower()}_{machine.lower()}"
-        binary_path = str(Path(__file__).parent / binary_name) + f"_v{VERSION}"
+        binary_path = f"{str(Path(__file__).parent / binary_name)}_v{VERSION}"
 
         extension = ".exe" if os.name == "nt" else ""
 
@@ -91,7 +91,7 @@ class Tunnel:
         )
         atexit.register(self.kill)
         url = ""
-        while url == "":
+        while not url:
             if self.proc.stdout is None:
                 continue
             line = self.proc.stdout.readline()
@@ -101,5 +101,5 @@ class Tunnel:
                 if result is None:
                     raise ValueError("Could not create share URL")
                 else:
-                    url = result.group(1)
+                    url = result[1]
         return url

@@ -169,7 +169,7 @@ class TestVideoProcessing:
             str(test_file_dir / "bad_video_sample.mp4")
         )
 
-    def raise_ffmpy_runtime_exception(*args, **kwargs):
+    def raise_ffmpy_runtime_exception(self, **kwargs):
         raise ffmpy.FFRuntimeError("", "", "", "")
 
     @pytest.mark.parametrize(
