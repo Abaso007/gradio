@@ -4,34 +4,33 @@ each component. These demos are located in the `demo` directory."""
 
 from __future__ import annotations
 
+import abc
 import hashlib
-import os
-import secrets
-import shutil
-import tempfile
-import urllib.request
+import json
+import sys
+import warnings
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Sequence
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
-import aiofiles
-import numpy as np
-import requests
-from fastapi import UploadFile
-from gradio_client import utils as client_utils
-from gradio_client.documentation import set_documentation_group
-from gradio_client.serializing import (
-    Serializable,
-)
-from PIL import Image as _Image  # using _ to minimize namespace pollution
+import gradio_client.utils as client_utils
 
-from gradio import processing_utils, utils
+from gradio import utils
 from gradio.blocks import Block, BlockContext
-from gradio.deprecation import warn_deprecation, warn_style_method_deprecation
-from gradio.events import (
-    EventListener,
+from gradio.component_meta import ComponentMeta
+from gradio.data_classes import (
+    BaseModel,
+    DeveloperPath,
+    FileData,
+    FileDataDict,
+    GradioDataModel,
+    MediaStreamChunk,
 )
-from gradio.layouts import Column, Form, Row
+from gradio.events import EventListener
+from gradio.layouts import Form
+from gradio.processing_utils import move_files_to_cache
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -40,9 +39,7 @@ if TYPE_CHECKING:
         headers: list[str]
         data: list[list[str | int | bool]]
 
-
-set_documentation_group("component")
-_Image.init()  # fixes https://github.com/gradio-app/gradio/issues/2843
+    from gradio.components import Timer
 
 
 class _Keywords(Enum):
@@ -50,90 +47,104 @@ class _Keywords(Enum):
     FINISHED_ITERATING = "FINISHED_ITERATING"  # Used to skip processing of a component's value (needed for generators + state)
 
 
-class Component(Block, Serializable):
-    """
-    A base class for defining the methods that all gradio components should have.
-    """
+class ComponentBase(ABC, metaclass=ComponentMeta):
+    EVENTS: list[EventListener | str] = []
 
-    def __init__(self, *args, **kwargs):
-        Block.__init__(self, *args, **kwargs)
-        EventListener.__init__(self)
-
-    def __str__(self):
-        return self.__repr__()
-
-    def __repr__(self):
-        return f"{self.get_block_name()}"
-
-    def get_config(self):
-        """
-        :return: a dictionary with context variables for the javascript file associated with the context
-        """
-        return {
-            "name": self.get_block_name(),
-            **super().get_config(),
-        }
-
-    def preprocess(self, x: Any) -> Any:
+    @abstractmethod
+    def preprocess(self, payload: Any) -> Any:
         """
         Any preprocessing needed to be performed on function input.
+        Parameters:
+            payload: The input data received by the component from the frontend.
+        Returns:
+            The preprocessed input data sent to the user's function in the backend.
         """
-        return x
+        return payload
 
-    def postprocess(self, y):
+    @abstractmethod
+    def postprocess(self, value):
         """
         Any postprocessing needed to be performed on function output.
+        Parameters:
+            value: The output data received by the component from the user's function in the backend.
+        Returns:
+            The postprocessed output data sent to the frontend.
         """
-        return y
+        return value
 
-    def style(self, *args, **kwargs):
+    @abstractmethod
+    def process_example(self, value):
         """
-        This method is deprecated. Please set these arguments in the Components constructor instead.
+        Process the input data in a way that can be displayed by the examples dataset component in the front-end.
+
+        For example, only return the name of a file as opposed to a full path. Or get the head of a dataframe.
+        The return value must be able to be json-serializable to put in the config.
         """
-        warn_style_method_deprecation()
-        put_deprecated_params_in_box = False
-        if "rounded" in kwargs:
-            warn_deprecation(
-                "'rounded' styling is no longer supported. To round adjacent components together, place them in a Column(variant='box')."
-            )
-            if isinstance(kwargs["rounded"], (list, tuple)):
-                put_deprecated_params_in_box = True
-            kwargs.pop("rounded")
-        if "margin" in kwargs:
-            warn_deprecation(
-                "'margin' styling is no longer supported. To place adjacent components together without margin, place them in a Column(variant='box')."
-            )
-            if isinstance(kwargs["margin"], (list, tuple)):
-                put_deprecated_params_in_box = True
-            kwargs.pop("margin")
-        if "border" in kwargs:
-            warn_deprecation(
-                "'border' styling is no longer supported. To place adjacent components in a shared border, place them in a Column(variant='box')."
-            )
-            kwargs.pop("border")
-        for key in kwargs:
-            warn_deprecation(f"Unknown style parameter: {key}")
-        if (
-            put_deprecated_params_in_box
-            and isinstance(self.parent, (Row, Column))
-            and self.parent.variant == "default"
-        ):
-            self.parent.variant = "compact"
-        return self
+        pass
+
+    @abstractmethod
+    def api_info(self) -> dict[str, list[str]]:
+        """
+        The typing information for this component as a dictionary whose values are a list of 2 strings: [Python type, language-agnostic description].
+        Keys of the dictionary are: raw_input, raw_output, serialized_input, serialized_output
+        """
+        pass
+
+    @abstractmethod
+    def example_inputs(self) -> Any:
+        """
+        Deprecated and replaced by `example_payload()` and `example_value()`.
+        """
+        pass
+
+    @abstractmethod
+    def flag(self, payload: Any | GradioDataModel, flag_dir: str | Path = "") -> str:
+        """
+        Write the component's value to a format that can be stored in a csv or jsonl format for flagging.
+        """
+        pass
+
+    @abstractmethod
+    def read_from_flag(self, payload: Any) -> GradioDataModel | Any:
+        """
+        Convert the data from the csv or jsonl file into the component state.
+        """
+        return payload
+
+    @property
+    @abstractmethod
+    def skip_api(self) -> bool:
+        """Whether this component should be skipped from the api return value"""
+
+    @classmethod
+    def has_event(cls, event: str | EventListener) -> bool:
+        return event in cls.EVENTS
+
+    @classmethod
+    def get_component_class_id(cls) -> str:
+        module_name = cls.__module__
+        module_path = sys.modules[module_name].__file__
+        module_hash = hashlib.md5(f"{cls.__name__}_{module_path}".encode()).hexdigest()
+        return module_hash
 
 
-class IOComponent(Component):
+def server(fn):
+    fn._is_server_fn = True
+    return fn
+
+
+class Component(ComponentBase, Block):
     """
     A base class for defining methods that all input/output components should have.
     """
 
     def __init__(
         self,
-        *,
         value: Any = None,
+        *,
         label: str | None = None,
         info: str | None = None,
-        show_label: bool = True,
+        show_label: bool | None = None,
         container: bool = True,
         scale: int | None = None,
         min_width: int | None = None,
@@ -141,25 +152,53 @@ class IOComponent(Component):
         visible: bool = True,
         elem_id: str | None = None,
         elem_classes: list[str] | str | None = None,
+        render: bool = True,
+        key: int | str | None = None,
         load_fn: Callable | None = None,
-        every: float | None = None,
-        **kwargs,
+        every: Timer | float | None = None,
+        inputs: Component | Sequence[Component] | set[Component] | None = None,
     ):
-        self.temp_files: set[str] = set()
-        self.DEFAULT_TEMP_DIR = os.environ.get("GRADIO_TEMP_DIR") or str(
-            Path(tempfile.gettempdir()) / "gradio"
-        )
+        self.server_fns = [
+            getattr(self, value)
+            for value in dir(self.__class__)
+            if callable(getattr(self, value))
+            and getattr(getattr(self, value), "_is_server_fn", False)
+        ]
 
-        Component.__init__(
-            self, elem_id=elem_id, elem_classes=elem_classes, visible=visible, **kwargs
+        # Svelte components expect elem_classes to be a list
+        # If we don't do this, returning a new component for an
+        # update will break the frontend
+        if not elem_classes:
+            elem_classes = []
+
+        # This gets overridden when `select` is called
+        self._selectable = False
+        if not hasattr(self, "data_model"):
+            self.data_model: type[GradioDataModel] | None = None
+
+        Block.__init__(
+            self,
+            elem_id=elem_id,
+            elem_classes=elem_classes,
+            visible=visible,
+            render=render,
+            key=key,
         )
+        if isinstance(self, StreamingInput):
+            self.check_streamable()
 
         self.label = label
         self.info = info
+        if not container:
+            if show_label:
+                warnings.warn("show_label has no effect when container is False.")
+            show_label = False
+        if show_label is None:
+            show_label = True
         self.show_label = show_label
         self.container = container
         if scale is not None and scale != round(scale):
-            warn_deprecation(
+            warnings.warn(
                 f"'scale' value should be an integer. Using {scale} will cause issues."
             )
         self.scale = scale
@@ -168,232 +207,256 @@ class IOComponent(Component):
 
         # load_event is set in the Blocks.attach_load_events method
         self.load_event: None | dict[str, Any] = None
-        self.load_event_to_attach = None
-        load_fn, initial_value = self.get_load_fn_and_initial_value(value)
-        self.value = (
-            initial_value
-            if self._skip_init_processing
-            else self.postprocess(initial_value)
+        self.load_event_to_attach: (
+            None
+            | tuple[
+                Callable,
+                list[tuple[Block, str]],
+                Component | Sequence[Component] | set[Component] | None,
+            ]
+        ) = None
+        load_fn, initial_value = self.get_load_fn_and_initial_value(value, inputs)
+        initial_value = self.postprocess(initial_value)
+        # Serialize the json value so that it gets stored in the
+        # config as plain json, for images/audio etc. `move_files_to_cache`
+        # will call model_dump
+        if isinstance(initial_value, BaseModel):
+            initial_value = initial_value.model_dump()
+        self.value = move_files_to_cache(
+            initial_value,
+            self,  # type: ignore
+            postprocess=True,
+            keep_in_cache=True,
         )
+        if client_utils.is_file_obj(self.value):
+            self.keep_in_cache.add(self.value["path"])
+
         if callable(load_fn):
-            self.attach_load_event(load_fn, every)
+            self.attach_load_event(load_fn, every, inputs)
 
-    @staticmethod
-    def hash_file(file_path: str | Path, chunk_num_blocks: int = 128) -> str:
-        sha1 = hashlib.sha1()
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(chunk_num_blocks * sha1.block_size), b""):
-                sha1.update(chunk)
-        return sha1.hexdigest()
+        self.component_class_id = self.__class__.get_component_class_id()
 
-    @staticmethod
-    def hash_url(url: str, chunk_num_blocks: int = 128) -> str:
-        sha1 = hashlib.sha1()
-        remote = urllib.request.urlopen(url)
-        max_file_size = 100 * 1024 * 1024  # 100MB
-        total_read = 0
-        while True:
-            data = remote.read(chunk_num_blocks * sha1.block_size)
-            total_read += chunk_num_blocks * sha1.block_size
-            if not data or total_read > max_file_size:
-                break
-            sha1.update(data)
-        return sha1.hexdigest()
-
-    @staticmethod
-    def hash_bytes(bytes: bytes):
-        sha1 = hashlib.sha1()
-        sha1.update(bytes)
-        return sha1.hexdigest()
-
-    @staticmethod
-    def hash_base64(base64_encoding: str, chunk_num_blocks: int = 128) -> str:
-        sha1 = hashlib.sha1()
-        for i in range(0, len(base64_encoding), chunk_num_blocks * sha1.block_size):
-            data = base64_encoding[i : i + chunk_num_blocks * sha1.block_size]
-            sha1.update(data.encode("utf-8"))
-        return sha1.hexdigest()
-
-    def make_temp_copy_if_needed(self, file_path: str | Path) -> str:
-        """Returns a temporary file path for a copy of the given file path if it does
-        not already exist. Otherwise returns the path to the existing temp file."""
-        temp_dir = self.hash_file(file_path)
-        temp_dir = Path(self.DEFAULT_TEMP_DIR) / temp_dir
-        temp_dir.mkdir(exist_ok=True, parents=True)
-
-        name = client_utils.strip_invalid_filename_characters(Path(file_path).name)
-        full_temp_file_path = str(utils.abspath(temp_dir / name))
-
-        if not Path(full_temp_file_path).exists():
-            shutil.copy2(file_path, full_temp_file_path)
-
-        self.temp_files.add(full_temp_file_path)
-        return full_temp_file_path
-
-    async def save_uploaded_file(self, file: UploadFile, upload_dir: str) -> str:
-        temp_dir = secrets.token_hex(
-            20
-        )  # Since the full file is being uploaded anyways, there is no benefit to hashing the file.
-        temp_dir = Path(upload_dir) / temp_dir
-        temp_dir.mkdir(exist_ok=True, parents=True)
-
-        if file.filename:
-            file_name = Path(file.filename).name
-            name = client_utils.strip_invalid_filename_characters(file_name)
-        else:
-            name = f"tmp{secrets.token_hex(5)}"
-
-        full_temp_file_path = str(utils.abspath(temp_dir / name))
-
-        async with aiofiles.open(full_temp_file_path, "wb") as output_file:
-            while True:
-                content = await file.read(100 * 1024 * 1024)
-                if not content:
-                    break
-                await output_file.write(content)
-
-        return full_temp_file_path
-
-    def download_temp_copy_if_needed(self, url: str) -> str:
-        """Downloads a file and makes a temporary file path for a copy if does not already
-        exist. Otherwise returns the path to the existing temp file."""
-        temp_dir = self.hash_url(url)
-        temp_dir = Path(self.DEFAULT_TEMP_DIR) / temp_dir
-        temp_dir.mkdir(exist_ok=True, parents=True)
-
-        name = client_utils.strip_invalid_filename_characters(Path(url).name)
-        full_temp_file_path = str(utils.abspath(temp_dir / name))
-
-        if not Path(full_temp_file_path).exists():
-            with requests.get(url, stream=True) as r, open(
-                full_temp_file_path, "wb"
-            ) as f:
-                shutil.copyfileobj(r.raw, f)
-
-        self.temp_files.add(full_temp_file_path)
-        return full_temp_file_path
-
-    def base64_to_temp_file_if_needed(
-        self, base64_encoding: str, file_name: str | None = None
-    ) -> str:
-        """Converts a base64 encoding to a file and returns the path to the file if
-        the file doesn't already exist. Otherwise returns the path to the existing file.
-        """
-        temp_dir = self.hash_base64(base64_encoding)
-        temp_dir = Path(self.DEFAULT_TEMP_DIR) / temp_dir
-        temp_dir.mkdir(exist_ok=True, parents=True)
-
-        guess_extension = client_utils.get_extension(base64_encoding)
-        if file_name:
-            file_name = client_utils.strip_invalid_filename_characters(file_name)
-        elif guess_extension:
-            file_name = f"file.{guess_extension}"
-        else:
-            file_name = "file"
-
-        full_temp_file_path = str(utils.abspath(temp_dir / file_name))  # type: ignore
-
-        if not Path(full_temp_file_path).exists():
-            data, _ = client_utils.decode_base64_to_binary(base64_encoding)
-            with open(full_temp_file_path, "wb") as fb:
-                fb.write(data)
-
-        self.temp_files.add(full_temp_file_path)
-        return full_temp_file_path
-
-    def pil_to_temp_file(self, img: _Image.Image, dir: str, format="png") -> str:
-        bytes_data = processing_utils.encode_pil_to_bytes(img, format)
-        temp_dir = Path(dir) / self.hash_bytes(bytes_data)
-        temp_dir.mkdir(exist_ok=True, parents=True)
-        filename = str(temp_dir / f"image.{format}")
-        img.save(filename, pnginfo=processing_utils.get_pil_metadata(img))
-        return filename
-
-    def img_array_to_temp_file(self, arr: np.ndarray, dir: str) -> str:
-        pil_image = _Image.fromarray(
-            processing_utils._convert(arr, np.uint8, force_copy=False)
-        )
-        return self.pil_to_temp_file(pil_image, dir, format="png")
-
-    def audio_to_temp_file(
-        self, data: np.ndarray, sample_rate: int, dir: str, format: str
-    ):
-        temp_dir = Path(dir) / self.hash_bytes(data.tobytes())
-        temp_dir.mkdir(exist_ok=True, parents=True)
-        filename = str(temp_dir / f"audio.{format}")
-        processing_utils.audio_to_file(sample_rate, data, filename, format=format)
-        return filename
-
-    def file_bytes_to_file(self, data: bytes, dir: str, file_name: str):
-        path = Path(dir) / self.hash_bytes(data)
-        path.mkdir(exist_ok=True, parents=True)
-        path = path / Path(file_name).name
-        path.write_bytes(data)
-        return path
+    TEMPLATE_DIR = DeveloperPath("./templates/")
+    FRONTEND_DIR = "../../frontend/"
 
     def get_config(self):
-        config = {
-            "label": self.label,
-            "show_label": self.show_label,
-            "container": self.container,
-            "scale": self.scale,
-            "min_width": self.min_width,
-            "interactive": self.interactive,
-            **super().get_config(),
-        }
+        config = super().get_config()
         if self.info:
             config["info"] = self.info
+        if len(self.server_fns):
+            config["server_fns"] = [fn.__name__ for fn in self.server_fns]
+        config.pop("render", None)
         return config
 
+    @property
+    def skip_api(self):
+        return False
+
     @staticmethod
-    def get_load_fn_and_initial_value(value):
+    def get_load_fn_and_initial_value(value, inputs=None):
+        initial_value = None
         if callable(value):
-            initial_value = value()
+            if not inputs:
+                initial_value = value()
             load_fn = value
         else:
             initial_value = value
             load_fn = None
         return load_fn, initial_value
 
-    def attach_load_event(self, callable: Callable, every: float | None):
-        """Add a load event that runs `callable`, optionally every `every` seconds."""
-        self.load_event_to_attach = (callable, every)
+    def attach_load_event(
+        self,
+        callable: Callable,
+        every: Timer | float | None,
+        inputs: Component | Sequence[Component] | set[Component] | None = None,
+    ):
+        """Add an event that runs `callable`, optionally at interval specified by `every`."""
+        if isinstance(inputs, Component):
+            inputs = [inputs]
+        changeable_events: list[tuple[Block, str]] = (
+            [(i, "change") for i in inputs if hasattr(i, "change")] if inputs else []
+        )
+        if isinstance(every, (int, float)):
+            from gradio.components import Timer
 
-    def as_example(self, input_data):
-        """Return the input data in a way that can be displayed by the examples dataset component in the front-end."""
-        return input_data
+            every = Timer(every)
+        if every:
+            changeable_events.append((every, "tick"))
+        self.load_event_to_attach = (
+            callable,
+            changeable_events,
+            inputs,
+        )
+
+    def process_example(self, value):
+        """
+        Process the input data in a way that can be displayed by the examples dataset component in the front-end.
+        By default, this calls the `.postprocess()` method of the component. However, if the `.postprocess()` method is
+        computationally intensive, or returns a large payload, a custom implementation may be appropriate.
+
+        For example,  the `process_example()` method of the `gr.Audio()` component only returns the name of the file, not
+        the processed audio file. The `.process_example()` method of the `gr.Dataframe()` returns the head of a dataframe
+        instead of the full dataframe.
+
+        The return value of this method must be json-serializable to put in the config.
+        """
+        return self.postprocess(value)
+
+    def as_example(self, value):
+        """Deprecated and replaced by `process_example()`."""
+        return self.process_example(value)
+
+    def example_inputs(self) -> Any:
+        """Deprecated and replaced by `example_payload()` and `example_value()`."""
+        return self.example_payload()
+
+    def example_payload(self) -> Any:
+        """
+        An example input data for this component, e.g. what is passed to this component's preprocess() method.
+        This is used to generate the docs for the View API page for Gradio apps using this component.
+        """
+        raise NotImplementedError()
+
+    def example_value(self) -> Any:
+        """
+        An example output data for this component, e.g. what is passed to this component's postprocess() method.
+        This is used to generate an example value if this component is used as a template for a custom component.
+        """
+        raise NotImplementedError()
+
+    def api_info(self) -> dict[str, Any]:
+        """
+        The typing information for this component as a dictionary whose values are a list of 2 strings: [Python type, language-agnostic description].
+        Keys of the dictionary are: raw_input, raw_output, serialized_input, serialized_output
+        """
+        if self.data_model is not None:
+            schema = self.data_model.model_json_schema()
+            desc = schema.pop("description", None)
+            schema["additional_description"] = desc
+            return schema
+        raise NotImplementedError(
+            f"The api_info method has not been implemented for {self.get_block_name()}"
+        )
+
+    def api_info_as_input(self) -> dict[str, Any]:
+        return self.api_info()
+
+    def api_info_as_output(self) -> dict[str, Any]:
+        return self.api_info()
+
+    def flag(self, payload: Any, flag_dir: str | Path = "") -> str:
+        """
+        Write the component's value to a format that can be stored in a csv or jsonl format for flagging.
+        """
+        if self.data_model:
+            payload = self.data_model.from_json(payload)
+            Path(flag_dir).mkdir(exist_ok=True)
+            payload = payload.copy_to_dir(flag_dir).model_dump()
+        if isinstance(payload, BaseModel):
+            payload = payload.model_dump()
+        if not isinstance(payload, str):
+            payload = json.dumps(payload)
+        return payload
+
+    def read_from_flag(self, payload: Any):
+        """
+        Convert the data from the csv or jsonl file into the component state.
+        """
+        if self.data_model:
+            return self.data_model.from_json(json.loads(payload))
+        return payload
 
 
-class FormComponent:
-    def get_expected_parent(self) -> type[Form]:
+class FormComponent(Component):
+    def get_expected_parent(self) -> type[Form] | None:
+        if getattr(self, "container", None) is False:
+            return None
         return Form
 
+    def preprocess(self, payload: Any) -> Any:
+        return payload
 
-def component(cls_name: str) -> Component:
-    obj = utils.component_or_layout_class(cls_name)()
+    def postprocess(self, value):
+        return value
+
+
+class StreamingOutput(metaclass=abc.ABCMeta):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.streaming: bool
+
+    @abc.abstractmethod
+    async def stream_output(
+        self, value, output_id: str, first_chunk: bool
+    ) -> tuple[MediaStreamChunk | None, FileDataDict | dict]:
+        pass
+
+    @abc.abstractmethod
+    async def combine_stream(
+        self,
+        stream: list[bytes],
+        desired_output_format: str | None = None,
+        only_file=False,
+    ) -> GradioDataModel | FileData:
+        """Combine all of the stream chunks into a single file.
+
+        This is needed for downloading the stream and for caching examples.
+        If `only_file` is True, only the FileData corresponding to the file should be returned (needed for downloading the stream).
+        The desired_output_format optionally converts the combined file. Should only be used for cached examples.
+        """
+        pass
+
+
+class StreamingInput(metaclass=abc.ABCMeta):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    @abc.abstractmethod
+    def check_streamable(self):
+        """Used to check if streaming is supported given the input."""
+        pass
+
+
+def component(cls_name: str, render: bool) -> Component:
+    obj = utils.component_or_layout_class(cls_name)(render=render)
     if isinstance(obj, BlockContext):
         raise ValueError(f"Invalid component: {obj.__class__}")
+    if not isinstance(obj, Component):
+        raise TypeError(f"Expected a Component instance, but got {obj.__class__}")
     return obj
 
 
-def get_component_instance(comp: str | dict | Component, render=True) -> Component:
+def get_component_instance(
+    comp: str | dict | Component, render: bool = False, unrender: bool = False
+) -> Component:
+    """
+    Returns a component instance from a string, dict, or Component object.
+    Parameters:
+        comp: the component to instantiate. If a string, must be the name of a component, e.g. "dropdown". If a dict, must have a "name" key, e.g. {"name": "dropdown", "choices": ["a", "b"]}. If a Component object, will be returned as is.
+        render: whether to render the component. If True, renders the component (if not already rendered). If False, does not do anything.
+        unrender: whether to unrender the component. If True, unrenders the the component (if already rendered) -- this is useful when constructing an Interface or ChatInterface inside of a Blocks. If False, does not do anything.
+    """
     if isinstance(comp, str):
-        component_obj = component(comp)
-        if not (render):
-            component_obj.unrender()
-        return component_obj
+        component_obj = component(comp, render=render)
     elif isinstance(comp, dict):
         name = comp.pop("name")
         component_cls = utils.component_or_layout_class(name)
-        component_obj = component_cls(**comp)
+        component_obj = component_cls(**comp, render=render)
         if isinstance(component_obj, BlockContext):
             raise ValueError(f"Invalid component: {name}")
-        if not (render):
-            component_obj.unrender()
-        return component_obj
     elif isinstance(comp, Component):
-        return comp
+        component_obj = comp
     else:
         raise ValueError(
-            f"Component must provided as a `str` or `dict` or `Component` but is {comp}"
+            f"Component must be provided as a `str` or `dict` or `Component` but is {comp}"
         )
+
+    if render and not component_obj.is_rendered:
+        component_obj.render()
+    elif unrender and component_obj.is_rendered:
+        component_obj.unrender()
+    if not isinstance(component_obj, Component):
+        raise TypeError(
+            f"Expected a Component instance, but got {component_obj.__class__}"
+        )
+    return component_obj

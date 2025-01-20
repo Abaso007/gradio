@@ -1,7 +1,8 @@
 <script lang="ts">
-	import DemosLanding from "../components/DemosLanding.svelte";
-	import MetaTags from "../components/MetaTags.svelte";
-	import gradio_banner from "../assets/img/header-image.jpg";
+	import version_json from "$lib/json/version.json";
+	import DemosLanding from "$lib/components/DemosLanding.svelte";
+	import MetaTags from "$lib/components/MetaTags.svelte";
+	import gradio_banner from "$lib/assets/img/header-image.jpg";
 	export let data: {
 		logos: {
 			img: string;
@@ -19,9 +20,22 @@
 		}[];
 		star_count: any;
 	};
+
+	let version = version_json.version;
 </script>
 
 <MetaTags url={"https://gradio.app"} canonical={"https://gradio.app"} />
+
+<svelte:head>
+	<script
+		id="gradio-js-script"
+		type="module"
+		src="https://gradio.s3-us-west-2.amazonaws.com/{version.replace(
+			'b',
+			'-beta.'
+		)}/gradio.js"
+	></script>
+</svelte:head>
 
 <div class="container relative mx-auto px-4 pt-8 pb-12">
 	<div class="flex flex-col items-center lg:flex-row">
@@ -42,10 +56,12 @@
 					Gradio is the fastest way to demo your machine learning model with a
 					friendly web interface so that anyone can use it, anywhere!
 				</p>
-				<div class="flex space-x-4 justify-center lg:justify-start">
+				<div
+					class="flex flex-col md:flex-row space-x-4 justify-center lg:justify-start"
+				>
 					<a
-						class="rounded-full bg-gradient-to-br from-orange-500 via-orange-500 to-yellow-500 px-6 py-3 text-lg font-semibold text-white hover:to-yellow-400 hover:drop-shadow-md md:text-xl"
-						href="/getting_started">Get Started</a
+						class="mx-auto w-fit mb-5 md:m-0 rounded-full bg-gradient-to-br from-orange-500 via-orange-500 to-yellow-500 px-6 py-3 text-lg font-semibold text-white hover:to-yellow-400 hover:drop-shadow-md md:text-xl"
+						href="/guides/quickstart">Get Started</a
 					>
 					<div class="flex items-center justify-center">
 						<a
@@ -121,15 +137,14 @@
 			Fast, easy setup
 		</h2>
 		<p class="mb-3 text-gray-600">
-			Gradio can be <a
-				class="text-link"
-				href="https://gradio.app/getting_started/">installed with pip</a
+			Gradio can be <a class="text-link" href="/guides/quickstart"
+				>installed with pip</a
 			>. Creating a Gradio interface only requires adding a couple lines of code
 			to your project.
 		</p>
 		<p class="text-gray-600">
-			You can choose from a variety of interface types to interface your
-			function.
+			Seamlessly use any python library on your computer. If you can write a
+			python function, gradio can run it.
 		</p>
 	</div>
 	<div
@@ -251,12 +266,12 @@
 						</div>
 					</div>
 					<svg
-						class="inline-block h-6 w-auto fill-current text-blue-400 dark:text-white"
-						viewBox="0 0 24 24"
+						class="inline-block h-6 w-auto text-blue-400 dark:text-white"
+						viewBox="0 0 512 512"
 					>
 						<g>
 							<path
-								d="M23.643 4.937c-.835.37-1.732.62-2.675.733.962-.576 1.7-1.49 2.048-2.578-.9.534-1.897.922-2.958 1.13-.85-.904-2.06-1.47-3.4-1.47-2.572 0-4.658 2.086-4.658 4.66 0 .364.042.718.12 1.06-3.873-.195-7.304-2.05-9.602-4.868-.4.69-.63 1.49-.63 2.342 0 1.616.823 3.043 2.072 3.878-.764-.025-1.482-.234-2.11-.583v.06c0 2.257 1.605 4.14 3.737 4.568-.392.106-.803.162-1.227.162-.3 0-.593-.028-.877-.082.593 1.85 2.313 3.198 4.352 3.234-1.595 1.25-3.604 1.995-5.786 1.995-.376 0-.747-.022-1.112-.065 2.062 1.323 4.51 2.093 7.14 2.093 8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602.91-.658 1.7-1.477 2.323-2.41z"
+								d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"
 							/>
 						</g>
 					</svg>
@@ -284,6 +299,11 @@
 		{/each}
 	</div>
 </div>
+<!-- 
+<a href="/{version}/docs"></a>
+<a href="/{version}/guide"></a> -->
+<a style="display: none;" href="/main/docs"></a>
+<a style="display: none;" href="/main/guides"></a>
 
 <style>
 	#gradio-banner {

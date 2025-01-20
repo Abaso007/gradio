@@ -1,15 +1,6 @@
-export interface HttpRequest {
-	method: "GET" | "POST" | "PUT" | "DELETE";
-	path: string;
-	query_string: string;
-	headers: Record<string, string>;
-	body?: Uint8Array;
-}
-export interface HttpResponse {
-	status: number;
-	headers: Record<string, string>;
-	body: Uint8Array;
-}
+import type { ASGIScope } from "./asgi-types";
+import type { PackageData } from "pyodide";
+
 export interface EmscriptenFile {
 	data: string | ArrayBufferView;
 	opts?: Record<string, string>;
@@ -24,11 +15,16 @@ export interface InMessageBase {
 	data: unknown;
 }
 
-export interface InMessageInit extends InMessageBase {
-	type: "init";
+export interface InMessageInitEnv extends InMessageBase {
+	type: "init-env";
 	data: {
 		gradioWheelUrl: string;
 		gradioClientWheelUrl: string;
+	};
+}
+export interface InMessageInitApp extends InMessageBase {
+	type: "init-app";
+	data: {
 		files: Record<string, EmscriptenFile | EmscriptenFileUrl>;
 		requirements: string[];
 	};
@@ -45,10 +41,10 @@ export interface InMessageRunPythonFile extends InMessageBase {
 		path: string;
 	};
 }
-export interface InMessageHttpRequest extends InMessageBase {
-	type: "http-request";
+export interface InMessageAsgiRequest extends InMessageBase {
+	type: "asgi-request";
 	data: {
-		request: HttpRequest;
+		scope: ASGIScope;
 	};
 }
 export interface InMessageFileWrite extends InMessageBase {
@@ -86,10 +82,11 @@ export interface InMessageEcho extends InMessageBase {
 }
 
 export type InMessage =
-	| InMessageInit
+	| InMessageInitEnv
+	| InMessageInitApp
 	| InMessageRunPythonCode
 	| InMessageRunPythonFile
-	| InMessageHttpRequest
+	| InMessageAsgiRequest
 	| InMessageFileWrite
 	| InMessageFileRename
 	| InMessageFileUnlink
@@ -106,3 +103,44 @@ export interface ReplyMessageError {
 }
 
 export type ReplyMessage = ReplyMessageSuccess | ReplyMessageError;
+
+export interface OutMessageBase {
+	type: string;
+	data: unknown;
+}
+export interface OutMessageProgressUpdate extends OutMessageBase {
+	type: "progress-update";
+	data: {
+		log: string;
+	};
+}
+export interface OutMessageModulesAutoLoaded extends OutMessageBase {
+	type: "modules-auto-loaded";
+	data: {
+		packages: PackageData[];
+	};
+}
+export interface OutMessageStdout extends OutMessageBase {
+	type: "stdout";
+	data: {
+		output: string;
+	};
+}
+export interface OutMessageStderr extends OutMessageBase {
+	type: "stderr";
+	data: {
+		output: string;
+	};
+}
+export interface OutMessagePythonError extends OutMessageBase {
+	type: "python-error";
+	data: {
+		traceback: string;
+	};
+}
+export type OutMessage =
+	| OutMessageProgressUpdate
+	| OutMessageModulesAutoLoaded
+	| OutMessageStdout
+	| OutMessageStderr
+	| OutMessagePythonError;

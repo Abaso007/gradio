@@ -11,7 +11,7 @@ import { join } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const version_path = join(__dirname, "..", "gradio", "version.txt");
+const version_path = join(__dirname, "..", "gradio", "package.json");
 const theme_token_path = join(
 	__dirname,
 	"..",
@@ -21,26 +21,28 @@ const theme_token_path = join(
 	"tokens.css"
 );
 
-const version = readFileSync(version_path, { encoding: "utf-8" })
-	.trim()
+const version = JSON.parse(readFileSync(version_path, { encoding: "utf-8" }))
+	.version.trim()
 	.replace(/\./g, "-");
 
 //@ts-ignore
 export default defineConfig(({ mode }) => {
-	const production =
-		mode === "production:cdn" ||
-		mode === "production:local" ||
-		mode === "production:website";
+	const production = mode === "production";
 
 	return {
 		server: {
 			port: 9876
 		},
-
+		resolve: {
+			conditions: ["gradio"]
+		},
 		build: {
 			sourcemap: false,
 			target: "esnext",
-			minify: production
+			minify: production,
+			rollupOptions: {
+				external: ["virtual:component-loader"]
+			}
 		},
 		define: {
 			BUILD_MODE: production ? JSON.stringify("prod") : JSON.stringify("dev"),
@@ -74,7 +76,7 @@ export default defineConfig(({ mode }) => {
 		},
 		plugins: [
 			svelte({
-				inspector: true,
+				inspector: false,
 				compilerOptions: {
 					dev: !production
 				},

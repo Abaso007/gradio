@@ -1,5 +1,6 @@
 <script lang="ts">
-	import MetaTags from "../../components/MetaTags.svelte";
+	import MetaTags from "$lib/components/MetaTags.svelte";
+	import { page } from "$app/stores";
 
 	export let data: {
 		content: any;
@@ -11,23 +12,12 @@
 
 	let content = data.content;
 	let slugs = data.changelog_slug;
-
-	function handleAnchorClick(event: MouseEvent) {
-		event.preventDefault();
-		const link = event.currentTarget as HTMLAnchorElement;
-		const anchorId = new URL(link.href).hash.replace("#", "");
-		const anchor = document.getElementById(anchorId);
-		window.scrollTo({
-			top: anchor?.offsetTop,
-			behavior: "smooth",
-		});
-	}
 </script>
 
 <MetaTags
 	title={"Gradio Changelog"}
-	url={"https://gradio.app/changelog"}
-	canonical={"https://gradio.app/changelog"}
+	url={$page.url.pathname}
+	canonical={$page.url.pathname}
 	description="Gradio Changelog and Release Notes"
 />
 
@@ -42,19 +32,26 @@
 		>
 			Version History
 		</div>
-		<div
-			class="navigation max-w-full bg-gradient-to-r from-orange-50 to-orange-100 p-2 mx-2 border-l-2 border-orange-500 mb-2"
-		>
+		<div class="navigation max-w-full p-2 mx-2 mb-2">
 			{#each slugs as heading}
-				<a
-					class="subheading block thin-link -indent-2 ml-4 mr-2"
-					href={heading.href}
-					on:click={handleAnchorClick}>{heading.text.replace("Version ", "")}</a
-				>
+				{#if heading.text == "4.0.0"}
+					<div class="flex">
+						<a
+							class="subheading block thin-link mr-1 px-2 rounded-lg w-min border border-orange-500"
+							href={heading.href}>{heading.text}</a
+						>
+						<p class="inline">🔥</p>
+					</div>
+				{:else}
+					<a
+						class="subheading block thin-link mr-2 px-2 rounded-lg"
+						href={heading.href}>{heading.text}</a
+					>
+				{/if}
 			{/each}
 		</div>
 	</div>
-	<div class="w-full">
+	<div class="w-10/12 mx-auto">
 		<div class="prose text-lg max-w-full">{@html content}</div>
 	</div>
 </div>

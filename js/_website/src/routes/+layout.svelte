@@ -5,28 +5,53 @@
 			__gradio_space__: string | null;
 		}
 	}
-	import type { media_query as MQ } from "../utils";
+	import type { media_query as MQ } from "../lib/utils";
 	export let store: ReturnType<typeof MQ>;
 </script>
 
 <script lang="ts">
-	import "../assets/style.css";
-	import "../assets/prism.css";
+	import "$lib/assets/style.css";
+	import "$lib/assets/prism.css";
 
-	import { page } from "$app/stores";
+	import Header from "$lib/components/Header.svelte";
+	import Footer from "$lib/components/Footer.svelte";
 
-	import Header from "../components/Header.svelte";
-	import Footer from "../components/Footer.svelte";
+	import WHEEL from "$lib/json/wheel.json";
 
-	import { media_query } from "../utils";
+	import { media_query } from "../lib/utils";
 	store = media_query();
 
 	import { browser } from "$app/environment";
 	if (browser) {
 		window.__gradio_mode__ = "website";
 	}
-	import version_json from "./version.json";
-	let version = version_json.version;
+
+	import CopyButton from "$lib/components/CopyButton.svelte";
+	import { afterNavigate } from "$app/navigation";
+
+	afterNavigate(() => {
+		if (window.innerWidth > 768) {
+			for (const node of document.querySelectorAll(".codeblock")) {
+				let children = Array.from(node.querySelectorAll("pre, a"));
+				let textContent = node.textContent;
+				node.innerHTML = "";
+
+				new CopyButton({
+					target: node,
+					props: {
+						content: textContent ?? ""
+					}
+				});
+				for (const child of children) {
+					node.appendChild(child);
+				}
+			}
+			const script = document.createElement("script");
+			script.src = WHEEL.gradio_lite_url + "/dist/lite.js";
+			script.type = "module";
+			document.head.appendChild(script);
+		}
+	});
 </script>
 
 <svelte:head>
@@ -45,13 +70,10 @@
 			dataLayer.push(arguments);
 		}
 		gtag("js", new Date());
-		gtag("config", "UA-156449732-1");
+		gtag("config", "UA-156449732-1", {
+			cookie_flags: "samesite=none;secure"
+		});
 	</script>
-
-	<script
-		type="module"
-		src="https://gradio.s3-us-west-2.amazonaws.com/{version}/gradio.js"
-	></script>
 </svelte:head>
 
 <Header />

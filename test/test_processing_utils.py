@@ -1,10 +1,6 @@
-import base64
-import io
-import logging
 import os
 import shutil
 import tempfile
-from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
 
@@ -14,23 +10,100 @@ import pytest
 from gradio_client import media_data
 from PIL import Image, ImageCms
 
-from gradio import components, processing_utils, utils
+from gradio import components, data_classes, processing_utils, utils
+from gradio.route_utils import API_PREFIX
+
+
+class TestTempFileManagement:
+    def test_hash_file(self):
+        h1 = processing_utils.hash_file("gradio/test_data/cheetah1.jpg")
+        h2 = processing_utils.hash_file("gradio/test_data/cheetah1-copy.jpg")
+        h3 = processing_utils.hash_file("gradio/test_data/cheetah2.jpg")
+        assert h1 == h2
+        assert h1 != h3
+
+    def test_make_temp_copy_if_needed(self, gradio_temp_dir):
+        f = processing_utils.save_file_to_cache(
+            "gradio/test_data/cheetah1.jpg", cache_dir=gradio_temp_dir
+        )
+        try:  # Delete if already exists from before this test
+            os.remove(f)
+        except OSError:
+            pass
+
+        f = processing_utils.save_file_to_cache(
+            "gradio/test_data/cheetah1.jpg", cache_dir=gradio_temp_dir
+        )
+        assert len([f for f in gradio_temp_dir.glob("**/*") if f.is_file()]) == 1
+
+        assert Path(f).name == "cheetah1.jpg"
+
+        f = processing_utils.save_file_to_cache(
+            "gradio/test_data/cheetah1.jpg", cache_dir=gradio_temp_dir
+        )
+        assert len([f for f in gradio_temp_dir.glob("**/*") if f.is_file()]) == 1
+
+        f = processing_utils.save_file_to_cache(
+            "gradio/test_data/cheetah1-copy.jpg", cache_dir=gradio_temp_dir
+        )
+        assert len([f for f in gradio_temp_dir.glob("**/*") if f.is_file()]) == 2
+        assert Path(f).name == "cheetah1-copy.jpg"
+
+    def test_save_b64_to_cache(self, gradio_temp_dir):
+        base64_file_1 = media_data.BASE64_IMAGE
+        base64_file_2 = media_data.BASE64_AUDIO["data"]
+
+        f = processing_utils.save_base64_to_cache(
+            base64_file_1, cache_dir=gradio_temp_dir
+        )
+        try:  # Delete if already exists from before this test
+            os.remove(f)
+        except OSError:
+            pass
+
+        f = processing_utils.save_base64_to_cache(
+            base64_file_1, cache_dir=gradio_temp_dir
+        )
+        assert len([f for f in gradio_temp_dir.glob("**/*") if f.is_file()]) == 1
+
+        f = processing_utils.save_base64_to_cache(
+            base64_file_1, cache_dir=gradio_temp_dir
+        )
+        assert len([f for f in gradio_temp_dir.glob("**/*") if f.is_file()]) == 1
+
+        f = processing_utils.save_base64_to_cache(
+            base64_file_2, cache_dir=gradio_temp_dir
+        )
+        assert len([f for f in gradio_temp_dir.glob("**/*") if f.is_file()]) == 2
+
+    @pytest.mark.flaky
+    def test_ssrf_protected_download(self, gradio_temp_dir):
+        url1 = "https://raw.githubusercontent.com/gradio-app/gradio/main/gradio/test_data/test_image.png"
+        url2 = "https://raw.githubusercontent.com/gradio-app/gradio/main/gradio/test_data/cheetah1.jpg"
+
+        f = processing_utils.save_url_to_cache(url1, cache_dir=gradio_temp_dir)
+        try:  # Delete if already exists from before this test
+            os.remove(f)
+        except OSError:
+            pass
+
+        f = processing_utils.save_url_to_cache(url1, cache_dir=gradio_temp_dir)
+        assert len([f for f in gradio_temp_dir.glob("**/*") if f.is_file()]) == 1
+
+        f = processing_utils.save_url_to_cache(url1, cache_dir=gradio_temp_dir)
+        assert len([f for f in gradio_temp_dir.glob("**/*") if f.is_file()]) == 1
+
+        f = processing_utils.save_url_to_cache(url2, cache_dir=gradio_temp_dir)
+        assert len([f for f in gradio_temp_dir.glob("**/*") if f.is_file()]) == 2
+
+    @pytest.mark.flaky
+    def test_ssrf_protected_download_with_redirect(self, gradio_temp_dir):
+        url = "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/bread_small.png"
+        processing_utils.save_url_to_cache(url, cache_dir=gradio_temp_dir)
+        assert len([f for f in gradio_temp_dir.glob("**/*") if f.is_file()]) == 1
 
 
 class TestImagePreprocessing:
-    def test_decode_base64_to_image(self):
-        output_image = processing_utils.decode_base64_to_image(
-            deepcopy(media_data.BASE64_IMAGE)
-        )
-        assert isinstance(output_image, Image.Image)
-
-        b64_img_without_header = deepcopy(media_data.BASE64_IMAGE).split(",")[1]
-        output_image_without_header = processing_utils.decode_base64_to_image(
-            b64_img_without_header
-        )
-
-        assert output_image == output_image_without_header
-
     def test_encode_plot_to_base64(self):
         with utils.MatplotlibBackendMananger():
             import matplotlib.pyplot as plt
@@ -41,39 +114,35 @@ class TestImagePreprocessing:
             "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAo"
         )
 
-    def test_encode_array_to_base64(self):
-        img = Image.open("gradio/test_data/test_image.png")
-        img = img.convert("RGB")
-        numpy_data = np.asarray(img, dtype=np.uint8)
-        output_base64 = processing_utils.encode_array_to_base64(numpy_data)
-        assert output_base64 == deepcopy(media_data.ARRAY_TO_BASE64_IMAGE)
-
-    def test_encode_pil_to_base64(self):
-        img = Image.open("gradio/test_data/test_image.png")
-        img = img.convert("RGB")
-        img.info = {}  # Strip metadata
-        output_base64 = processing_utils.encode_pil_to_base64(img)
-        assert output_base64 == deepcopy(media_data.ARRAY_TO_BASE64_IMAGE)
-
-    def test_save_pil_to_file_keeps_pnginfo(self, tmp_path):
+    def test_save_pil_to_file_keeps_pnginfo(self, gradio_temp_dir):
         input_img = Image.open("gradio/test_data/test_image.png")
         input_img = input_img.convert("RGB")
         input_img.info = {"key1": "value1", "key2": "value2"}
+        input_img.save(gradio_temp_dir / "test_test_image.png")
 
-        file_obj = components.Image().pil_to_temp_file(input_img, dir=tmp_path)
+        file_obj = processing_utils.save_pil_to_cache(
+            input_img, cache_dir=gradio_temp_dir, format="png"
+        )
         output_img = Image.open(file_obj)
 
         assert output_img.info == input_img.info
 
-    def test_np_pil_encode_to_the_same(self, tmp_path):
+    def test_save_pil_to_file_keeps_all_gif_frames(self, gradio_temp_dir):
+        input_img = Image.open("gradio/test_data/rectangles.gif")
+        file_obj = processing_utils.save_pil_to_cache(
+            input_img, cache_dir=gradio_temp_dir, format="gif"
+        )
+        output_img = Image.open(file_obj)
+        assert output_img.n_frames == input_img.n_frames == 3  # type: ignore
+
+    def test_np_pil_encode_to_the_same(self, gradio_temp_dir):
         arr = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
         pil = Image.fromarray(arr)
-        comp = components.Image()
-        assert comp.pil_to_temp_file(pil, dir=tmp_path) == comp.img_array_to_temp_file(
-            arr, dir=tmp_path
-        )
+        assert processing_utils.save_pil_to_cache(
+            pil, cache_dir=gradio_temp_dir
+        ) == processing_utils.save_img_array_to_cache(arr, cache_dir=gradio_temp_dir)
 
-    def test_encode_pil_to_temp_file_metadata_color_profile(self, tmp_path):
+    def test_encode_pil_to_temp_file_metadata_color_profile(self, gradio_temp_dir):
         # Read image
         img = Image.open("gradio/test_data/test_image.png")
         img_metadata = Image.open("gradio/test_data/test_image.png")
@@ -82,39 +151,33 @@ class TestImagePreprocessing:
         # Creating sRGB profile
         profile = ImageCms.createProfile("sRGB")
         profile2 = ImageCms.ImageCmsProfile(profile)
-        img.save(tmp_path / "img_color_profile.png", icc_profile=profile2.tobytes())
-        img_cp1 = Image.open(str(tmp_path / "img_color_profile.png"))
+        img.save(
+            gradio_temp_dir / "img_color_profile.png", icc_profile=profile2.tobytes()
+        )
+        img_cp1 = Image.open(str(gradio_temp_dir / "img_color_profile.png"))
 
         # Creating XYZ profile
         profile = ImageCms.createProfile("XYZ")
         profile2 = ImageCms.ImageCmsProfile(profile)
-        img.save(tmp_path / "img_color_profile_2.png", icc_profile=profile2.tobytes())
-        img_cp2 = Image.open(str(tmp_path / "img_color_profile_2.png"))
+        img.save(
+            gradio_temp_dir / "img_color_profile_2.png", icc_profile=profile2.tobytes()
+        )
+        img_cp2 = Image.open(str(gradio_temp_dir / "img_color_profile_2.png"))
 
-        comp = components.Image()
-        img_path = comp.pil_to_temp_file(img, dir=tmp_path)
-        img_metadata_path = comp.pil_to_temp_file(img_metadata, dir=tmp_path)
-        img_cp1_path = comp.pil_to_temp_file(img_cp1, dir=tmp_path)
-        img_cp2_path = comp.pil_to_temp_file(img_cp2, dir=tmp_path)
+        img_path = processing_utils.save_pil_to_cache(
+            img, cache_dir=gradio_temp_dir, format="png"
+        )
+        img_metadata_path = processing_utils.save_pil_to_cache(
+            img_metadata, cache_dir=gradio_temp_dir, format="png"
+        )
+        img_cp1_path = processing_utils.save_pil_to_cache(
+            img_cp1, cache_dir=gradio_temp_dir, format="png"
+        )
+        img_cp2_path = processing_utils.save_pil_to_cache(
+            img_cp2, cache_dir=gradio_temp_dir, format="png"
+        )
+
         assert len({img_path, img_metadata_path, img_cp1_path, img_cp2_path}) == 4
-
-    def test_encode_pil_to_base64_keeps_pnginfo(self):
-        input_img = Image.open("gradio/test_data/test_image.png")
-        input_img = input_img.convert("RGB")
-        input_img.info = {"key1": "value1", "key2": "value2"}
-
-        encoded_image = processing_utils.encode_pil_to_base64(input_img)
-        decoded_image = processing_utils.decode_base64_to_image(encoded_image)
-
-        assert decoded_image.info == input_img.info
-
-    @patch("PIL.Image.Image.getexif", return_value={274: 3})
-    @patch("PIL.ImageOps.exif_transpose")
-    def test_base64_to_image_does_rotation(self, mock_rotate, mock_exif):
-        input_img = Image.open("gradio/test_data/test_image.png")
-        base64 = processing_utils.encode_pil_to_base64(input_img)
-        processing_utils.decode_base64_to_image(base64)
-        mock_rotate.assert_called_once()
 
     def test_resize_and_crop(self):
         img = Image.open("gradio/test_data/test_image.png")
@@ -213,7 +276,7 @@ class TestVideoProcessing:
         )
 
     def raise_ffmpy_runtime_exception(*args, **kwargs):
-        raise ffmpy.FFRuntimeError("", "", "", "")
+        raise ffmpy.FFRuntimeError("", "", "", "")  # type: ignore
 
     @pytest.mark.parametrize(
         "exception_to_raise", [raise_ffmpy_runtime_exception, KeyError(), IndexError()]
@@ -221,11 +284,12 @@ class TestVideoProcessing:
     def test_video_has_playable_codecs_catches_exceptions(
         self, exception_to_raise, test_file_dir
     ):
-        with patch(
-            "ffmpy.FFprobe.run", side_effect=exception_to_raise
-        ), tempfile.NamedTemporaryFile(
-            suffix="out.avi", delete=False
-        ) as tmp_not_playable_vid:
+        with (
+            patch("ffmpy.FFprobe.run", side_effect=exception_to_raise),
+            tempfile.NamedTemporaryFile(
+                suffix="out.avi", delete=False
+            ) as tmp_not_playable_vid,
+        ):
             shutil.copy(
                 str(test_file_dir / "bad_video_sample.mp4"),
                 tmp_not_playable_vid.name,
@@ -264,18 +328,117 @@ class TestVideoProcessing:
             assert Path(playable_vid).suffix == ".avi"
 
 
-def test_decode_base64_to_image_does_not_crash_when_image_has_bogus_exif_data(caplog):
-    from PIL.PngImagePlugin import PngInfo
+def test_add_root_url():
+    data = {
+        "file": {
+            "path": "path",
+            "url": f"{API_PREFIX}/file=path",
+            "meta": {"_type": "gradio.FileData"},
+        },
+        "file2": {
+            "path": "path2",
+            "url": "https://www.gradio.app",
+            "meta": {"_type": "gradio.FileData"},
+        },
+    }
+    root_url = "http://localhost:7860"
+    expected = {
+        "file": {
+            "path": "path",
+            "url": f"{root_url}{API_PREFIX}/file=path",
+            "meta": {"_type": "gradio.FileData"},
+        },
+        "file2": {
+            "path": "path2",
+            "url": "https://www.gradio.app",
+            "meta": {"_type": "gradio.FileData"},
+        },
+    }
+    assert processing_utils.add_root_url(data, root_url, None) == expected
+    new_root_url = "https://1234.gradio.live"
+    new_expected = {
+        "file": {
+            "path": "path",
+            "url": f"{new_root_url}{API_PREFIX}/file=path",
+            "meta": {"_type": "gradio.FileData"},
+        },
+        "file2": {
+            "path": "path2",
+            "url": "https://www.gradio.app",
+            "meta": {"_type": "gradio.FileData"},
+        },
+    }
+    assert (
+        processing_utils.add_root_url(expected, new_root_url, root_url) == new_expected
+    )
 
-    caplog.set_level(logging.WARNING)
-    i = Image.new("RGB", (32, 32), "orange")
-    bio = io.BytesIO()
-    # since `exif` is the `.info` key for EXIF data parsed from a JPEG,
-    # adding an iTXt chunk with the same name should trigger the warning
-    pi = PngInfo()
-    pi.add_text("exif", "bogus")
-    i.save(bio, format="png", pnginfo=pi)
-    bio.seek(0)
-    encoded = base64.b64encode(bio.getvalue()).decode()
-    assert processing_utils.decode_base64_to_image(encoded).size == (32, 32)
-    assert "Failed to transpose image" in caplog.text
+
+def test_hash_url_encodes_url():
+    assert processing_utils.hash_url(
+        "https://www.gradio.app/image 1.jpg"
+    ) == processing_utils.hash_bytes(b"https://www.gradio.app/image 1.jpg")
+
+
+@pytest.mark.asyncio
+async def test_json_data_not_moved_to_cache():
+    data = data_classes.JsonData(
+        root={
+            "file": {
+                "path": "path",
+                "url": f"{API_PREFIX}/file=path",
+                "meta": {"_type": "gradio.FileData"},
+            }
+        }
+    )
+    assert (
+        processing_utils.move_files_to_cache(data, components.Number(), False) == data
+    )
+    assert processing_utils.move_files_to_cache(data, components.Number(), True) == data
+    assert (
+        await processing_utils.async_move_files_to_cache(
+            data, components.Number(), False
+        )
+        == data
+    )
+    assert (
+        await processing_utils.async_move_files_to_cache(
+            data, components.Number(), True
+        )
+        == data
+    )
+
+
+def test_public_request_pass():
+    tempdir = tempfile.TemporaryDirectory()
+    file = processing_utils.ssrf_protected_download(
+        "https://en.wikipedia.org/static/images/icons/wikipedia.png", tempdir.name
+    )
+    assert os.path.exists(file)
+    assert os.path.getsize(file) == 13444
+
+
+@pytest.mark.asyncio
+async def test_async_public_request_pass():
+    tempdir = tempfile.TemporaryDirectory()
+    file = await processing_utils.async_ssrf_protected_download(
+        "https://en.wikipedia.org/static/images/icons/wikipedia.png", tempdir.name
+    )
+    assert os.path.exists(file)
+    assert os.path.getsize(file) == 13444
+
+
+def test_private_request_fail():
+    with pytest.raises(ValueError, match="failed validation"):
+        tempdir = tempfile.TemporaryDirectory()
+        processing_utils.ssrf_protected_download(
+            "http://192.168.1.250.nip.io/image.png", tempdir.name
+        )
+
+
+@pytest.mark.asyncio
+async def test_async_private_request_fail():
+    with pytest.raises(ValueError, match="failed validation"):
+        tempdir = tempfile.TemporaryDirectory()
+        await processing_utils.async_ssrf_protected_download(
+            "http://192.168.1.250.nip.io/image.png", tempdir.name
+        )

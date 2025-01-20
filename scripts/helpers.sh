@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -eu
 
 #######################################
 # Tell the user what programs to install for a specific task.
@@ -10,7 +10,7 @@
 #######################################
 function program_required() {
   if [ ! -x "$(command -v ${1})" ]; then
-    echo "${1} is not installed in the computer..."
+    echo "${1} is not installed on the computer..."
     if [ "${2}" ]; then
       echo "Check out this link: ${2}"
     fi
@@ -48,7 +48,7 @@ function npm_required() {
 #   None
 #######################################
 function pnpm_required() {
-  program_required "pnpm" "https://pnpm.io/7.x/installation"
+  program_required "pnpm" "https://pnpm.io/installation"
 }
 
 #######################################
@@ -71,4 +71,19 @@ function aws_required() {
 #######################################
 function git_required() {
   program_required "git" "https://git-scm.com/downloads"
+}
+
+#######################################
+# Check for the jq program.
+# Arguments:
+#   None
+# Outputs:
+#   None
+#######################################
+function jq_required() {
+  program_required "jq" "https://jqlang.github.io/jq/"
+}
+
+function foo_required() {
+  program_required "foo" "https://jqlang.github.io/jq/"
 }

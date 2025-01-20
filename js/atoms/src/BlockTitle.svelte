@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { default as Info } from "./Info.svelte";
-	export let show_label: boolean = true;
+	export let show_label = true;
 	export let info: string | undefined = undefined;
+	export let root: string;
 </script>
 
 <span
@@ -13,7 +14,7 @@
 	<slot />
 </span>
 {#if info}
-	<Info>{info}</Info>
+	<Info {root} {info} />
 {/if}
 
 <style>

@@ -1,13 +1,42 @@
 <script lang="ts">
-	export let Icon: any;
+	import { type ComponentType } from "svelte";
+	export let Icon: ComponentType;
 	export let label = "";
-	export let show_label: boolean = false;
-	export let pending: boolean = false;
+	export let show_label = false;
+	export let pending = false;
+	export let size: "small" | "large" | "medium" = "small";
+	export let padded = true;
+	export let highlight = false;
+	export let disabled = false;
+	export let hasPopup = false;
+	export let color = "var(--block-label-text-color)";
+	export let transparent = false;
+	export let background = "var(--block-background-fill)";
+	$: _color = highlight ? "var(--color-accent)" : color;
 </script>
 
-<button on:click aria-label={label} title={label} class:pending>
+<button
+	{disabled}
+	on:click
+	aria-label={label}
+	aria-haspopup={hasPopup}
+	title={label}
+	class:pending
+	class:padded
+	class:highlight
+	class:transparent
+	style:color={!disabled && _color ? _color : "var(--block-label-text-color)"}
+	style:--bg-color={!disabled ? background : "auto"}
+>
 	{#if show_label}<span>{label}</span>{/if}
-	<div><Icon /></div>
+	<div
+		class:small={size === "small"}
+		class:large={size === "large"}
+		class:medium={size === "medium"}
+	>
+		<svelte:component this={Icon} />
+		<slot />
+	</div>
 </button>
 
 <style>
@@ -16,19 +45,37 @@
 		justify-content: center;
 		align-items: center;
 		gap: 1px;
-		z-index: var(--layer-1);
-		box-shadow: var(--shadow-drop);
-		border: 1px solid var(--button-secondary-border-color);
-		border-radius: var(--radius-sm);
-		background: var(--background-fill-primary);
-		padding: 2px;
+		z-index: var(--layer-2);
+		border-radius: var(--radius-xs);
 		color: var(--block-label-text-color);
+		border: 1px solid transparent;
+		padding: var(--spacing-xxs);
 	}
 
 	button:hover {
+		background-color: var(--background-fill-secondary);
+	}
+
+	button[disabled] {
+		opacity: 0.5;
+		box-shadow: none;
+	}
+
+	button[disabled]:hover {
+		cursor: not-allowed;
+	}
+
+	.padded {
+		background: var(--bg-color);
+	}
+
+	button:hover,
+	button.highlight {
 		cursor: pointer;
-		border: 2px solid var(--button-secondary-border-color-hover);
-		padding: 1px;
+		color: var(--color-accent);
+	}
+
+	.padded:hover {
 		color: var(--block-label-text-color);
 	}
 
@@ -38,9 +85,25 @@
 	}
 
 	div {
-		padding: 2px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: filter 0.2s ease-in-out;
+	}
+
+	.small {
 		width: 14px;
 		height: 14px;
+	}
+
+	.medium {
+		width: 20px;
+		height: 20px;
+	}
+
+	.large {
+		width: 22px;
+		height: 22px;
 	}
 
 	.pending {
@@ -57,5 +120,11 @@
 		100% {
 			opacity: 0.5;
 		}
+	}
+
+	.transparent {
+		background: transparent;
+		border: none;
+		box-shadow: none;
 	}
 </style>

@@ -15,7 +15,7 @@ tts_demo = gr.load(
 stt_demo = gr.load(
     "huggingface/facebook/wav2vec2-base-960h",
     title=None,
-    inputs="mic",
+    inputs=gr.Microphone(type="filepath"),
     description="Let me try to guess what you're saying!",
 )
 

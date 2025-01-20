@@ -5,7 +5,8 @@
 		"config:base",
 		":preserveSemverRanges",
 		"group:allNonMajor",
-		":semanticCommitTypeAll(chore)"
+		":semanticCommitTypeAll(chore)",
+		":disableDependencyDashboard"
 	],
 	"ignorePaths": [
 		"**/demo/**",
@@ -19,6 +20,8 @@
 		"babylonjs-loaders",
 		"postcss-load-config",
 		"postcss-nested",
-		"svelte"
+		"svelte",
+		"vite",
+		"vitest"
 	]
 }

@@ -5,8 +5,8 @@
 	let el: HTMLDivElement;
 	$: parent_height = compare_el_to_parent(el);
 
-	function compare_el_to_parent(el: HTMLDivElement) {
-		if (!el) return;
+	function compare_el_to_parent(el: HTMLDivElement): boolean {
+		if (!el) return false;
 
 		const { height: el_height } = el.getBoundingClientRect();
 		const { height: parent_height } =
@@ -23,6 +23,7 @@
 	class:unpadded_box
 	bind:this={el}
 	class:small_parent={parent_height}
+	aria-label="Empty value"
 >
 	<div class="icon">
 		<slot />
@@ -55,14 +56,6 @@
 	.unpadded_box {
 		margin-top: 0;
 	}
-
-	/* .unpadded_box.small {
-		min-height: var(--size-32);
-	}
-
-	.unpadded_box.large {
-		min-height: var(--size-64);
-	} */
 
 	.small_parent {
 		min-height: 100% !important;

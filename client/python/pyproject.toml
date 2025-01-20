@@ -7,15 +7,15 @@ name = "gradio_client"
 dynamic = ["version", "dependencies", "readme"]
 description = "Python library for easily interacting with trained machine learning models"
 license = "Apache-2.0"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 authors = [
-  { name = "Abubakar Abid", email = "team@gradio.app" },
-  { name = "Ali Abid", email = "team@gradio.app" },
-  { name = "Ali Abdalla", email = "team@gradio.app" },
-  { name = "Dawood Khan", email = "team@gradio.app" },
-  { name = "Ahsen Khaliq", email = "team@gradio.app" },
-  { name = "Pete Allen", email = "team@gradio.app" },
-  { name = "Freddy Boulton", email = "team@gradio.app" },
+  { name = "Abubakar Abid", email = "gradio-team@huggingface.co" },
+  { name = "Ali Abid", email = "gradio-team@huggingface.co" },
+  { name = "Ali Abdalla", email = "gradio-team@huggingface.co" },
+  { name = "Dawood Khan", email = "gradio-team@huggingface.co" },
+  { name = "Ahsen Khaliq", email = "gradio-team@huggingface.co" },
+  { name = "Pete Allen", email = "gradio-team@huggingface.co" },
+  { name = "Freddy Boulton", email = "gradio-team@huggingface.co" },
 ]
 keywords = ["machine learning", "client", "API"]
 
@@ -38,8 +38,8 @@ classifiers = [
 Homepage = "https://github.com/gradio-app/gradio"
 
 [tool.hatch.version]
-path = "gradio_client/version.txt"
-pattern = "(?P<version>.+)"
+path = "gradio_client/package.json"
+pattern = ".*\"version\":\\s*\"(?P<version>[^\"]+)\""
 
 [tool.hatch.metadata.hooks.requirements_txt]
 filename = "requirements.txt"
@@ -60,7 +60,7 @@ include = [
 [tool.ruff]
 extend = "../../pyproject.toml"
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = [
   "gradio_client"
 ]

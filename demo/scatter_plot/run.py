@@ -27,10 +27,9 @@ iris = data.iris()
 # cars = pd.DataFrame(cars_data)
 # iris = pd.DataFrame(iris_data)
 
-
 def scatter_plot_fn(dataset):
     if dataset == "iris":
-        return gr.ScatterPlot.update(
+        return gr.ScatterPlot(
             value=iris,
             x="petalWidth",
             y="petalLength",
@@ -43,18 +42,17 @@ def scatter_plot_fn(dataset):
             caption="",
         )
     else:
-        return gr.ScatterPlot.update(
+        return gr.ScatterPlot(
             value=cars,
             x="Horsepower",
             y="Miles_per_Gallon",
             color="Origin",
-            tooltip="Name",
+            tooltip=["Name"],
             title="Car Data",
             y_title="Miles per Gallon",
             color_legend_title="Origin of Car",
             caption="MPG vs Horsepower of various cars",
         )
-
 
 with gr.Blocks() as scatter_plot:
     with gr.Row():

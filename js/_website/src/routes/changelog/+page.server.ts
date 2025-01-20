@@ -1,10 +1,9 @@
-import changelog_json from "./changelog.json";
+import changelog_json from "$lib/json/changelog.json";
 import { compile } from "mdsvex";
-import anchor from "../../assets/img/anchor.svg";
+import anchor from "$lib/assets/img/anchor.svg";
+import version from "$lib/json/version.json";
 
-let content = changelog_json.content;
-let versions = changelog_json.versions;
-import { make_slug_processor } from "../../utils";
+import { make_slug_processor } from "$lib/utils";
 import { toString as to_string } from "hast-util-to-string";
 
 import Prism from "prismjs";
@@ -35,11 +34,13 @@ function highlight(code: string, lang: string | undefined) {
 				code,
 				Prism.languages[_lang],
 				_lang
-		  )}</code></pre>`
+			)}</code></pre>`
 		: code;
 
 	return highlighted;
 }
+
+let content = changelog_json.content;
 
 export async function load() {
 	const changelog_slug: object[] = [];
@@ -48,7 +49,7 @@ export async function load() {
 	function plugin() {
 		return function transform(tree: any) {
 			tree.children.forEach((n: any) => {
-				if (n.type === "element" && ["h1"].includes(n.tagName)) {
+				if (n.type === "element" && ["h2"].includes(n.tagName)) {
 					const str_of_heading = to_string(n);
 					const slug = get_slug(str_of_heading);
 
