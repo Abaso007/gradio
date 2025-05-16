@@ -1,5 +1,49 @@
 # gradio
 
+## 5.29.1
+
+### Features
+
+- [#11185](https://github.com/gradio-app/gradio/pull/11185) [`e64b83b`](https://github.com/gradio-app/gradio/commit/e64b83bf42a813d9269e519189523f8390a72ec4) - Evaluate index variable in argument description.  Thanks @emmanuel-ferdman!
+- [#11173](https://github.com/gradio-app/gradio/pull/11173) [`d023b2e`](https://github.com/gradio-app/gradio/commit/d023b2e2ffdf872f531e22b0310bc7855a756c7d) - Adds docs for `gr.api()` which were previously missing from the website.  Thanks @abidlabs!
+- [#11159](https://github.com/gradio-app/gradio/pull/11159) [`cb9f21b`](https://github.com/gradio-app/gradio/commit/cb9f21be28d2077e61af7d58d9f66b90f2e5c07a) - chore: Support Path type for the favicon.  Thanks @wdroz!
+- [#11183](https://github.com/gradio-app/gradio/pull/11183) [`ab0fbb3`](https://github.com/gradio-app/gradio/commit/ab0fbb32cdee752673313b5536c04eecadc1071e) - Plot brushing prevents chart refresh.  Thanks @aliabid94!
+- [#11156](https://github.com/gradio-app/gradio/pull/11156) [`a1d436f`](https://github.com/gradio-app/gradio/commit/a1d436f7e62ea7d973ef176b4801ca6eb1be65a4) - Lazy import pandas in native_plot.py.  Thanks @whitphx!
+- [#11129](https://github.com/gradio-app/gradio/pull/11129) [`d5ddd85`](https://github.com/gradio-app/gradio/commit/d5ddd85d4d5088cce154b1cd50a4a2db179ac227) - Ocean theme quickfix.  Thanks @aliabid94!
+
+### Fixes
+
+- [#11174](https://github.com/gradio-app/gradio/pull/11174) [`f11a26a`](https://github.com/gradio-app/gradio/commit/f11a26a31e8586eecb026e0b32a30f061462aa67) - Remove warning from gr.File about specifying file_types when file_count is directory.  Thanks @freddyaboulton!
+- [#11189](https://github.com/gradio-app/gradio/pull/11189) [`88f06c7`](https://github.com/gradio-app/gradio/commit/88f06c7b8126a67edefd3116c764148d0f39c6c7) - Ensure that tabs with `visible=False` don't show up in the overflow menu.  Thanks @abidlabs!
+- [#11181](https://github.com/gradio-app/gradio/pull/11181) [`ee7f17e`](https://github.com/gradio-app/gradio/commit/ee7f17e25642bc4b86f2272b3b5cfcf77c08adf1) - Fix the `.select()` event in `gr.Dataset` in table layout.  Thanks @abidlabs!
+- [#11180](https://github.com/gradio-app/gradio/pull/11180) [`0595238`](https://github.com/gradio-app/gradio/commit/05952383bdc079814c560ebe7af3cd04e1474bed) - Refactor `gr.State`, `gr.BrowserState`, and `gr.Timer` to inherit from `FormComponent`.  Thanks @abidlabs!
+- [#11195](https://github.com/gradio-app/gradio/pull/11195) [`0571f83`](https://github.com/gradio-app/gradio/commit/0571f83f47ad3ab657ed99324d015174eea27d92) - Fix bug where returning components in a dictionary would not work in reload mode.  Thanks @freddyaboulton!
+- [#11179](https://github.com/gradio-app/gradio/pull/11179) [`caf46c7`](https://github.com/gradio-app/gradio/commit/caf46c7db930c07a776882615632fafe81db8cd1) - Fix `.unrender()`.  Thanks @abidlabs!
+- [#11147](https://github.com/gradio-app/gradio/pull/11147) [`bc0d0e0`](https://github.com/gradio-app/gradio/commit/bc0d0e0ec53abb52ad81036646fa573080f9d763) - Fix "delete" diff instruction in JS client.  Thanks @freddyaboulton!
+- [#11186](https://github.com/gradio-app/gradio/pull/11186) [`470a41f`](https://github.com/gradio-app/gradio/commit/470a41ffaaad1ca5d213c4e4098a742d333d5740) - #11056 Avoid unchecked pop from `blob_storage` cache in `ImageEditor::preprocess`.  Thanks @doraeneko!
+- [#11171](https://github.com/gradio-app/gradio/pull/11171) [`85cfa82`](https://github.com/gradio-app/gradio/commit/85cfa826c4b65b3aa62397464e0a30aae2cdbeb1) - Fixes `save_history` not working when passing gradio component.  Thanks @dawoodkhan82!
+- [#11184](https://github.com/gradio-app/gradio/pull/11184) [`f1a1c50`](https://github.com/gradio-app/gradio/commit/f1a1c5049ec1a5fcd3353b090a138fa63137790f) - Add Example component for JSON.  Thanks @freddyaboulton!
+- [#11196](https://github.com/gradio-app/gradio/pull/11196) [`1bc680d`](https://github.com/gradio-app/gradio/commit/1bc680d2fffaf70687b0e7eb723d0454e9da826b) - Fix 500 error in /file= route.  Thanks @freddyaboulton!
+- [#11151](https://github.com/gradio-app/gradio/pull/11151) [`0497068`](https://github.com/gradio-app/gradio/commit/049706886917af3d5dca288695dc418fc24640a3) - Fix builtin functions for gr.State value.  Thanks @freddyaboulton!
+- [#11158](https://github.com/gradio-app/gradio/pull/11158) [`56ab579`](https://github.com/gradio-app/gradio/commit/56ab5799fab715e36fb540c580fd03ed0113a26c) - gr.Chatbot: Style fixes to remove multiple scrollbars.  Thanks @aymeric-roucher!
+- [#11172](https://github.com/gradio-app/gradio/pull/11172) [`b618571`](https://github.com/gradio-app/gradio/commit/b618571ed17a8cece4bf9f1f55ed2e8bf7b59c46) - Fix python client SSE decoding issue.  Thanks @freddyaboulton!
+
+## 5.29.0
+
+### Features
+
+- [#11103](https://github.com/gradio-app/gradio/pull/11103) [`098fb29`](https://github.com/gradio-app/gradio/commit/098fb29d384ddf2c8a09efd9746bc788d74e2a17) - Add `openapi.json` route for Gradio apps as well as docs on the "view API" page.  Thanks @abidlabs!
+
+### Fixes
+
+- [#11102](https://github.com/gradio-app/gradio/pull/11102) [`8cd4e53`](https://github.com/gradio-app/gradio/commit/8cd4e53a839d86ac69ea2d2eabfcb73e9ff4926c) - Fix file upload progress.  Thanks @freddyaboulton!
+- [#11098](https://github.com/gradio-app/gradio/pull/11098) [`49ad594`](https://github.com/gradio-app/gradio/commit/49ad5943eeab96b153f0b56fe8d42d755fe1e0f8) - Fix #10281: Dragging image replaces existing instead of opening new tab.  Thanks @Martim-Rito!
+- [#11113](https://github.com/gradio-app/gradio/pull/11113) [`c32f8de`](https://github.com/gradio-app/gradio/commit/c32f8de99a6ab3a82da2f8d5f9f3176a04129f77) - Fix markdown change event.  Thanks @freddyaboulton!
+- [#11115](https://github.com/gradio-app/gradio/pull/11115) [`49e7a0d`](https://github.com/gradio-app/gradio/commit/49e7a0dd18174196b262d32e6c59d93ca40b1c73) - update STDIO instructions to specify sse-only transport.  Thanks @evalstate!
+- [#11111](https://github.com/gradio-app/gradio/pull/11111) [`15d6297`](https://github.com/gradio-app/gradio/commit/15d6297261bfca97a2df30b9df358c7751386958) - Fix gradio cc environment.  Thanks @freddyaboulton!
+- [#11112](https://github.com/gradio-app/gradio/pull/11112) [`0e5a75e`](https://github.com/gradio-app/gradio/commit/0e5a75e263dfd0557431e33771dd8cd49196b28e) - Fix passing datetime.datetime instance to gr.Datetime.  Thanks @freddyaboulton!
+- [#11119](https://github.com/gradio-app/gradio/pull/11119) [`bb2c744`](https://github.com/gradio-app/gradio/commit/bb2c7443c25b12241ab218195251520e953f7e32) - Replace invalid characters in MCP tool name.  Thanks @abidlabs!
+
 ## 5.28.0
 
 ### Features
