@@ -12,7 +12,6 @@
 	import type { LoadingStatus } from "@gradio/statustracker";
 	import { Block } from "@gradio/atoms";
 
-	export let label: string;
 	export let elem_id = "";
 	export let elem_classes: string[] = [];
 	export let visible = true;
@@ -38,8 +37,7 @@
 	export let show_copy_button = false;
 	export let container = false;
 	export let theme_mode: ThemeMode;
-
-	$: label, gradio.dispatch("change");
+	export let padding = false;
 </script>
 
 <Block
@@ -60,7 +58,7 @@
 		variant="center"
 		on:clear_status={() => gradio.dispatch("clear_status", loading_status)}
 	/>
-	<div class:pending={loading_status?.status === "pending"}>
+	<div class:padding class:pending={loading_status?.status === "pending"}>
 		<Markdown
 			{value}
 			{elem_classes}
@@ -87,5 +85,9 @@
 
 	.pending {
 		opacity: 0.2;
+	}
+
+	.padding {
+		padding: var(--block-padding);
 	}
 </style>

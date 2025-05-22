@@ -1,5 +1,28 @@
 # @gradio/image
 
+## 0.22.6
+
+### Features
+
+- [#11177](https://github.com/gradio-app/gradio/pull/11177) [`3068196`](https://github.com/gradio-app/gradio/commit/3068196d47234fd1c1634f33b9ddfc089f5cbbe0) - Improved, smoother fullscreen mode for components.  Thanks @aliabid94!
+
+### Dependency updates
+
+- @gradio/statustracker@0.10.11
+- @gradio/atoms@0.16.1
+- @gradio/client@1.15.0
+- @gradio/upload@0.16.5
+
+## 0.22.5
+
+### Fixes
+
+- [#11098](https://github.com/gradio-app/gradio/pull/11098) [`49ad594`](https://github.com/gradio-app/gradio/commit/49ad5943eeab96b153f0b56fe8d42d755fe1e0f8) - Fix #10281: Dragging image replaces existing instead of opening new tab.  Thanks @Martim-Rito!
+
+### Dependency updates
+
+- @gradio/upload@0.16.4
+
 ## 0.22.4
 
 ### Fixes

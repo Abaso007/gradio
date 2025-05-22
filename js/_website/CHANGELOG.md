@@ -1,5 +1,34 @@
 # website
 
+## 0.56.2
+
+### Dependency updates
+
+- @gradio/code@0.14.4
+- @gradio/paramviewer@0.7.9
+- @gradio/statustracker@0.10.11
+
+## 0.56.1
+
+### Features
+
+- [#11173](https://github.com/gradio-app/gradio/pull/11173) [`d023b2e`](https://github.com/gradio-app/gradio/commit/d023b2e2ffdf872f531e22b0310bc7855a756c7d) - Adds docs for `gr.api()` which were previously missing from the website.  Thanks @abidlabs!
+
+### Dependency updates
+
+- @gradio/tabs@0.4.4
+- @gradio/tabitem@0.4.4
+
+## 0.56.0
+
+### Features
+
+- [#11120](https://github.com/gradio-app/gradio/pull/11120) [`b2118d4`](https://github.com/gradio-app/gradio/commit/b2118d4b613f93b34e02c809e7d0faaa7545b875) - Docs mcp server.  Thanks @aliabd!
+
+### Dependency updates
+
+- @gradio/code@0.14.3
+
 ## 0.55.0
 
 ### Features

@@ -1,6 +1,7 @@
 import os
 import tempfile
 
+import httpx
 import pytest
 from PIL import Image
 
@@ -86,3 +87,70 @@ def test_simplify_filedata_schema():
     simplified_schema, filedata_positions = server.simplify_filedata_schema(test_schema)
     assert simplified_schema["properties"]["image"]["type"] == "string"
     assert filedata_positions == [["image"]]
+
+
+def test_tool_prefix_character_replacement():
+    test_cases = [
+        ("test-space", "test_space"),
+        ("flux.1_schnell", "flux_1_schnell"),
+        ("test\\backslash", "test_backslash"),
+        ("test:colon spaces ", "test_colon_spaces_"),
+    ]
+
+    original_system = os.environ.get("SYSTEM")
+    original_space_id = os.environ.get("SPACE_ID")
+
+    try:
+        os.environ["SYSTEM"] = "spaces"
+        for input_prefix, expected_prefix in test_cases:
+            os.environ["SPACE_ID"] = input_prefix
+            server = GradioMCPServer(app)
+            assert server.tool_prefix == expected_prefix
+    finally:
+        if original_system is not None:
+            os.environ["SYSTEM"] = original_system
+        else:
+            os.environ.pop("SYSTEM", None)
+        if original_space_id is not None:
+            os.environ["SPACE_ID"] = original_space_id
+        else:
+            os.environ.pop("SPACE_ID", None)
+
+
+def test_mcp_sse_transport():
+    _, url, _ = app.launch(mcp_server=True, prevent_thread_lock=True)
+
+    with httpx.Client(timeout=5) as client:
+        sse_url = f"{url}gradio_api/mcp/sse"
+
+        with client.stream("GET", sse_url) as response:
+            assert response.is_success
+
+            terminate_next = False
+            line = ""
+            for line in response.iter_lines():
+                if terminate_next:
+                    break
+                if line.startswith("event: endpoint"):
+                    terminate_next = True
+
+            messages_path = line[5:].strip()
+            messages_url = f"{url.rstrip('/')}{messages_path}"
+
+            message_response = client.post(
+                messages_url,
+                json={
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2025-03-26",
+                        "capabilities": {},
+                    },
+                    "jsonrpc": "2.0",
+                    "id": 0,
+                },
+                headers={"Content-Type": "application/json"},
+            )
+
+            assert message_response.is_success, (
+                f"Failed with status {message_response.status_code}: {message_response.text}"
+            )
